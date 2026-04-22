@@ -1,11 +1,25 @@
-# Todo List API
+# Todo List App
 
 ![CI Pipeline](https://github.com/ronketer/secure-rest-api-cicd/actions/workflows/node.js.yml/badge.svg)
 ![Coverage Threshold](https://img.shields.io/badge/Coverage_Threshold-≥80%25-brightgreen)
 ![Security](https://img.shields.io/badge/Security-JWT_Auth-blue)
 ![Node](https://img.shields.io/badge/Node.js-v18%2B-339933?logo=node.js&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white)
 
-A user-scoped RESTful Todo API built with Node.js and Express, featuring JWT authentication, integration testing against an in-memory MongoDB instance, and a GitHub Actions CI pipeline enforcing ≥80% test coverage.
+A fullstack todo application with a Node.js/Express backend and React frontend. Features JWT authentication, pagination, real-time UI updates, and a GitHub Actions CI pipeline enforcing ≥80% test coverage.
+
+**Structure:** Monorepo with backend at root and React frontend in `client/`.
+
+## Features
+
+- 🔐 **JWT Authentication** — secure stateless auth with token persistence
+- 📝 **CRUD Todos** — create, read, update (title + description), delete with confirmation
+- 📄 **Pagination** — 10 todos per page with prev/next navigation
+- 🎨 **Modern UI** — React with Tailwind CSS, responsive design
+- ⚡ **Hot reload** — Vite dev server for instant feedback
+- 🧪 **Comprehensive testing** — 80%+ coverage on backend; integration tests with real MongoDB
+- 🚀 **CI/CD** — GitHub Actions pipeline runs tests and builds both backend and frontend
+- 🔒 **User-scoped data** — todos are isolated per user; no cross-user access
 
 ## API Endpoints
 
@@ -57,6 +71,29 @@ npm test -- --coverage             # with coverage report
 npm test -- tests/auth.test.js     # single file
 ```
 
+## Project Structure
+
+```
+todo_list_api/
+├── app.js                    # Express entry point
+├── routes/ models/ controllers/ middleware/  # Backend
+├── tests/                    # Backend integration tests
+├── .github/workflows/        # CI/CD (test + frontend build)
+├── .env.example
+├── package.json             # Backend dependencies
+│
+└── client/                   # React + Vite frontend
+    ├── src/
+    │   ├── pages/           # Login, Register, Dashboard
+    │   ├── components/      # TodoItem, TodoForm, ProtectedRoute
+    │   ├── context/         # AuthContext (JWT + localStorage)
+    │   ├── api/             # Axios instance with auth interceptor
+    │   └── App.jsx
+    ├── vite.config.js       # Proxy: /api → http://localhost:3000
+    ├── tailwind.config.js
+    └── package.json         # Frontend dependencies
+```
+
 ## Getting Started
 
 ### Prerequisites
@@ -68,9 +105,16 @@ npm test -- tests/auth.test.js     # single file
 ### Installation
 
 ```bash
-git clone https://github.com/ronketer/secure-rest-api-cicd.git
-cd secure-rest-api-cicd
+git clone https://github.com/ronketer/todo-list-app.git
+cd todo-list-app
 npm install
+
+# Install frontend dependencies
+cd client
+npm install
+cd ..
+
+# Set up environment
 cp .env.example .env
 ```
 
@@ -81,17 +125,28 @@ Edit `.env` and fill in:
 | `MONGO_URI` | MongoDB Atlas connection string |
 | `JWT_SECRET` | Random secret for signing tokens (e.g. `openssl rand -hex 32`) |
 | `JWT_EXPIRATION` | Token lifetime (e.g. `30d`) |
-| `PORT` | Server port (defaults to `3000`) |
+| `PORT` | Backend port (defaults to `3000`) |
 
-### Run
+### Run Locally
 
+**Backend** (http://localhost:3000):
 ```bash
-npm start        # start dev server (nodemon)
-npm test         # run test suite (no MongoDB needed)
+npm start        # dev server with nodemon
+npm test         # test suite (no MongoDB needed)
 ```
+
+**Frontend** (http://localhost:5173):
+```bash
+cd client
+npm run dev      # dev server with hot-reload
+npm run build    # production build
+```
+
+Both can run in parallel. The frontend proxies API calls to the backend via Vite's proxy config.
 
 ## Tech Stack
 
+### Backend
 | Layer | Technology |
 |-------|-----------|
 | Runtime | Node.js 18+ |
@@ -101,4 +156,20 @@ npm test         # run test suite (no MongoDB needed)
 | Auth | jsonwebtoken, bcryptjs |
 | Security headers | Helmet |
 | Testing | Jest, Supertest, mongodb-memory-server |
-| CI | GitHub Actions |
+
+### Frontend
+| Layer | Technology |
+|-------|-----------|
+| Runtime | Node.js 18+ |
+| Framework | React 18 |
+| Build tool | Vite 5 |
+| Styling | Tailwind CSS |
+| Routing | React Router v6 |
+| HTTP client | Axios (with JWT interceptor) |
+| State management | React Context + localStorage (auth) |
+
+### CI/CD
+| Tool | Purpose |
+|------|---------|
+| GitHub Actions | Run tests (Node 18 & 20), build frontend |
+| Jest | Backend unit + integration tests (≥80% coverage) |
