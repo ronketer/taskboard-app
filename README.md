@@ -16,7 +16,7 @@ A fullstack todo application with a Node.js/Express backend and React frontend. 
 - 📝 **CRUD Todos** — create, read, update (title + description), delete with confirmation
 - 📄 **Pagination** — 10 todos per page with prev/next navigation
 - ✨ **Daily Inspiration** — Zen quote of the day fetched server-side and cached for 24 hours
-- 🎨 **Modern UI** — React with Tailwind CSS, responsive design, indigo color palette
+- 🎨 **Modern UI** — React with Mantine component library, responsive design, indigo color palette
 - ⚡ **Hot reload** — Vite dev server for instant feedback
 - 🧪 **Comprehensive testing** — 80%+ coverage on backend; integration tests with real MongoDB
 - 🚀 **CI/CD** — GitHub Actions pipeline runs tests and builds both backend and frontend
@@ -180,7 +180,8 @@ npm run build:client # build frontend
 | Runtime | Node.js 18+ |
 | Framework | React 18 |
 | Build tool | Vite 5 |
-| Styling | Tailwind CSS |
+| UI Components | Mantine (120+ components) |
+| Styling | Tailwind CSS + Mantine theming |
 | Routing | React Router v6 |
 | HTTP client | Axios (with JWT interceptor) |
 | State management | React Context + localStorage (auth) |

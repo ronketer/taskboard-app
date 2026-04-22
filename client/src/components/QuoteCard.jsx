@@ -1,3 +1,4 @@
+import { Card, Text, Group, Badge, Anchor } from "@mantine/core";
 import useQuote from "../hooks/useQuote";
 
 export default function QuoteCard() {
@@ -6,24 +7,24 @@ export default function QuoteCard() {
   if (loading || !quote) return null;
 
   return (
-    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-6">
-      <p className="text-slate-700 italic text-sm leading-relaxed">
+    <Card withBorder shadow="sm" radius="md" mb="lg" p="lg" bg="indigo.0">
+      <Text size="lg" fw={500} mb="md" c="indigo.9" style={{ fontStyle: "italic", lineHeight: 1.6 }}>
         "{quote.quote}"
-      </p>
-      <p className="text-slate-500 text-xs mt-2 font-medium">
-        — {quote.author}
-      </p>
-      <p className="text-slate-400 text-xs mt-3">
+      </Text>
+      <Group justify="space-between" align="flex-end">
+        <Text size="sm" fw={600} c="indigo.7">
+          — {quote.author}
+        </Text>
+        <Badge size="sm" variant="light">
+          Daily Quote
+        </Badge>
+      </Group>
+      <Text size="xs" c="dimmed" mt="md">
         Inspirational quotes provided by{" "}
-        <a
-          href="https://zenquotes.io/"
-          target="_blank"
-          rel="noreferrer"
-          className="text-indigo-500 hover:text-indigo-700"
-        >
+        <Anchor href="https://zenquotes.io/" target="_blank" rel="noreferrer" size="xs">
           ZenQuotes API
-        </a>
-      </p>
-    </div>
+        </Anchor>
+      </Text>
+    </Card>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Container, Title, Button, Alert, Group, Center, Loader, Pagination, Stack, Text } from "@mantine/core";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import TodoForm from "../components/TodoForm";
@@ -19,7 +20,7 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const { data } = await api.get(`/todos?p=${p}`);
-      setTodos(data.data); // backend returns { data: [...] }
+      setTodos(data.data);
       setPageCount(data.pageCount);
       setPage(data.page);
     } catch {
@@ -71,28 +72,35 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex justify-between items-center mb-6 border-b border-slate-200 pb-4">
-          <h1 className="text-2xl font-bold">My Todos</h1>
-          <button
-            onClick={handleLogout}
-            className="text-sm text-slate-500 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors duration-200"
-          >
-            Logout
-          </button>
-        </div>
+    <Container size="md" py="xl">
+      <Group justify="space-between" mb="xl">
+        <Title order={1}>My Todos</Title>
+        <Button
+          variant="light"
+          color="red"
+          onClick={handleLogout}
+        >
+          Logout
+        </Button>
+      </Group>
 
-        <QuoteCard />
+      <QuoteCard />
 
-        {error && <p className="mb-4 text-red-500 text-sm">{error}</p>}
+      {error && (
+        <Alert color="red" mb="md">
+          {error}
+        </Alert>
+      )}
 
-        <TodoForm onAdd={handleAdd} />
+      <TodoForm onAdd={handleAdd} />
 
-        <div className="space-y-2">
-          {loading ? (
-            <p className="text-center text-slate-400 py-8">Loading...</p>
-          ) : (
+      {loading ? (
+        <Center py="xl">
+          <Loader />
+        </Center>
+      ) : (
+        <Stack gap="md">
+          {todos.length > 0 ? (
             <>
               {todos.map((todo) => (
                 <TodoItem
@@ -102,37 +110,25 @@ export default function Dashboard() {
                   onEdit={handleEdit}
                 />
               ))}
-              {todos.length === 0 && (
-                <p className="text-center text-slate-400 py-8">
-                  No todos yet. Add one above!
-                </p>
-              )}
             </>
+          ) : (
+            <Center py="xl">
+              <Text c="dimmed">No todos yet. Add one above!</Text>
+            </Center>
           )}
-        </div>
+        </Stack>
+      )}
 
-        {pageCount > 1 && (
-          <div className="flex justify-center items-center gap-4 mt-6">
-            <button
-              onClick={() => fetchTodos(page - 1)}
-              disabled={page === 1}
-              className="px-4 py-2 rounded-lg bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors duration-200 disabled:opacity-40"
-            >
-              Previous
-            </button>
-            <span className="text-slate-600">
+      {pageCount > 1 && (
+        <Center mt="xl">
+          <Group>
+            <Text size="sm" c="dimmed">
               Page {page} of {pageCount}
-            </span>
-            <button
-              onClick={() => fetchTodos(page + 1)}
-              disabled={page === pageCount}
-              className="px-4 py-2 rounded-lg bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors duration-200 disabled:opacity-40"
-            >
-              Next
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+            </Text>
+            <Pagination value={page} onChange={fetchTodos} total={pageCount} />
+          </Group>
+        </Center>
+      )}
+    </Container>
   );
 }
