@@ -3,10 +3,11 @@ import { useState } from "react";
 export default function TodoItem({ todo, onDelete, onEdit }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(todo.title);
+  const [description, setDescription] = useState(todo.description ?? "");
 
   async function handleSave() {
     if (title.trim().length < 3) return;
-    await onEdit(todo.id, title.trim());
+    await onEdit(todo.id, title.trim(), description.trim());
     setEditing(false);
   }
 
@@ -14,13 +15,23 @@ export default function TodoItem({ todo, onDelete, onEdit }) {
     <div className="flex items-center gap-3 p-3 border rounded-lg bg-white">
       {editing ? (
         <>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="flex-1 border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            minLength={3}
-            maxLength={50}
-          />
+          <div className="flex-1 flex flex-col gap-2">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              minLength={3}
+              maxLength={50}
+              placeholder="Title (3–50 chars)"
+            />
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+              rows={2}
+              placeholder="Description (optional)"
+            />
+          </div>
           <button
             onClick={handleSave}
             className="text-green-600 hover:text-green-800 text-sm font-medium"
@@ -30,6 +41,7 @@ export default function TodoItem({ todo, onDelete, onEdit }) {
           <button
             onClick={() => {
               setTitle(todo.title);
+              setDescription(todo.description ?? "");
               setEditing(false);
             }}
             className="text-gray-500 hover:text-gray-700 text-sm"
@@ -52,7 +64,11 @@ export default function TodoItem({ todo, onDelete, onEdit }) {
             Edit
           </button>
           <button
-            onClick={() => onDelete(todo.id)}
+            onClick={() => {
+              if (window.confirm(`Delete "${todo.title}"?`)) {
+                onDelete(todo.id);
+              }
+            }}
             className="text-red-500 hover:text-red-700 text-sm font-medium"
           >
             Delete

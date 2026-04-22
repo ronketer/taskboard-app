@@ -12,8 +12,10 @@ export default function Dashboard() {
   const [page, setPage] = useState(1);
   const [pageCount, setPageCount] = useState(1);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function fetchTodos(p = 1) {
+    setLoading(true);
     try {
       const { data } = await api.get(`/todos?p=${p}`);
       setTodos(data.data); // backend returns { data: [...] }
@@ -21,6 +23,8 @@ export default function Dashboard() {
       setPage(data.page);
     } catch {
       setError("Failed to load todos");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -46,9 +50,11 @@ export default function Dashboard() {
     }
   }
 
-  async function handleEdit(id, title) {
+  async function handleEdit(id, title, description) {
     try {
-      await api.put(`/todos/${id}`, { title });
+      const body = { title };
+      if (description) body.description = description;
+      await api.put(`/todos/${id}`, body);
       fetchTodos(page);
     } catch (err) {
       setError(err.response?.data?.msg || "Failed to update todo");
@@ -78,18 +84,24 @@ export default function Dashboard() {
         <TodoForm onAdd={handleAdd} />
 
         <div className="space-y-2">
-          {todos.map((todo) => (
-            <TodoItem
-              key={todo.id}
-              todo={todo}
-              onDelete={handleDelete}
-              onEdit={handleEdit}
-            />
-          ))}
-          {todos.length === 0 && (
-            <p className="text-center text-gray-400 py-8">
-              No todos yet. Add one above!
-            </p>
+          {loading ? (
+            <p className="text-center text-gray-400 py-8">Loading...</p>
+          ) : (
+            <>
+              {todos.map((todo) => (
+                <TodoItem
+                  key={todo.id}
+                  todo={todo}
+                  onDelete={handleDelete}
+                  onEdit={handleEdit}
+                />
+              ))}
+              {todos.length === 0 && (
+                <p className="text-center text-gray-400 py-8">
+                  No todos yet. Add one above!
+                </p>
+              )}
+            </>
           )}
         </div>
 
