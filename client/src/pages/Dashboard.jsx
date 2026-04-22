@@ -4,6 +4,7 @@ import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import TodoForm from "../components/TodoForm";
 import TodoItem from "../components/TodoItem";
+import QuoteCard from "../components/QuoteCard";
 
 export default function Dashboard() {
   const { logout } = useAuth();
@@ -34,6 +35,7 @@ export default function Dashboard() {
 
   async function handleAdd(title) {
     try {
+      setError("");
       await api.post("/todos", { title });
       fetchTodos(page);
     } catch (err) {
@@ -43,6 +45,7 @@ export default function Dashboard() {
 
   async function handleDelete(id) {
     try {
+      setError("");
       await api.delete(`/todos/${id}`);
       fetchTodos(page);
     } catch {
@@ -52,6 +55,7 @@ export default function Dashboard() {
 
   async function handleEdit(id, title, description) {
     try {
+      setError("");
       const body = { title };
       if (description) body.description = description;
       await api.put(`/todos/${id}`, body);
@@ -67,17 +71,19 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-slate-50 py-8 px-4">
       <div className="max-w-2xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-6 border-b border-slate-200 pb-4">
           <h1 className="text-2xl font-bold">My Todos</h1>
           <button
             onClick={handleLogout}
-            className="text-sm text-gray-500 hover:text-red-600"
+            className="text-sm text-slate-500 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors duration-200"
           >
             Logout
           </button>
         </div>
+
+        <QuoteCard />
 
         {error && <p className="mb-4 text-red-500 text-sm">{error}</p>}
 
@@ -85,7 +91,7 @@ export default function Dashboard() {
 
         <div className="space-y-2">
           {loading ? (
-            <p className="text-center text-gray-400 py-8">Loading...</p>
+            <p className="text-center text-slate-400 py-8">Loading...</p>
           ) : (
             <>
               {todos.map((todo) => (
@@ -97,7 +103,7 @@ export default function Dashboard() {
                 />
               ))}
               {todos.length === 0 && (
-                <p className="text-center text-gray-400 py-8">
+                <p className="text-center text-slate-400 py-8">
                   No todos yet. Add one above!
                 </p>
               )}
@@ -110,17 +116,17 @@ export default function Dashboard() {
             <button
               onClick={() => fetchTodos(page - 1)}
               disabled={page === 1}
-              className="px-4 py-2 rounded bg-white border hover:bg-gray-100 disabled:opacity-40"
+              className="px-4 py-2 rounded-lg bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors duration-200 disabled:opacity-40"
             >
               Previous
             </button>
-            <span className="text-gray-600">
+            <span className="text-slate-600">
               Page {page} of {pageCount}
             </span>
             <button
               onClick={() => fetchTodos(page + 1)}
               disabled={page === pageCount}
-              className="px-4 py-2 rounded bg-white border hover:bg-gray-100 disabled:opacity-40"
+              className="px-4 py-2 rounded-lg bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors duration-200 disabled:opacity-40"
             >
               Next
             </button>

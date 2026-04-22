@@ -19,7 +19,7 @@ export default function TodoItem({ todo, onDelete, onEdit }) {
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               minLength={3}
               maxLength={50}
               placeholder="Title (3–50 chars)"
@@ -27,14 +27,14 @@ export default function TodoItem({ todo, onDelete, onEdit }) {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+              className="border border-slate-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
               rows={2}
               placeholder="Description (optional)"
             />
           </div>
           <button
             onClick={handleSave}
-            className="text-green-600 hover:text-green-800 text-sm font-medium"
+            className="text-green-600 hover:text-green-800 hover:bg-green-50 px-2 py-1 rounded-md transition-colors duration-150 text-sm font-medium"
           >
             Save
           </button>
@@ -44,22 +44,22 @@ export default function TodoItem({ todo, onDelete, onEdit }) {
               setDescription(todo.description ?? "");
               setEditing(false);
             }}
-            className="text-gray-500 hover:text-gray-700 text-sm"
+            className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 px-2 py-1 rounded-md transition-colors duration-150 text-sm"
           >
             Cancel
           </button>
         </>
       ) : (
         <>
-          <span className="flex-1">{todo.title}</span>
-          {todo.description && (
-            <span className="text-sm text-gray-400 truncate max-w-xs">
-              {todo.description}
-            </span>
-          )}
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-slate-800 truncate">{todo.title}</p>
+            {todo.description && (
+              <p className="text-sm text-slate-500 mt-0.5 truncate">{todo.description}</p>
+            )}
+          </div>
           <button
             onClick={() => setEditing(true)}
-            className="text-blue-500 hover:text-blue-700 text-sm font-medium"
+            className="text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors duration-150 text-sm font-medium"
           >
             Edit
           </button>
@@ -69,7 +69,7 @@ export default function TodoItem({ todo, onDelete, onEdit }) {
                 onDelete(todo.id);
               }
             }}
-            className="text-red-500 hover:text-red-700 text-sm font-medium"
+            className="text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-md transition-colors duration-150 text-sm font-medium"
           >
             Delete
           </button>

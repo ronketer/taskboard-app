@@ -17,13 +17,13 @@ export default function TodoForm({ onAdd }) {
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="What needs to be done? (min 3 characters)"
-        className="flex-1 border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="flex-1 border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         minLength={3}
         maxLength={50}
       />
       <button
         type="submit"
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition-colors duration-200 font-semibold"
       >
         Add
       </button>

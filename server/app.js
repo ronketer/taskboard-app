@@ -1,5 +1,5 @@
 // imports
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 require('express-async-errors');
 const express = require('express');
 const app = express();
@@ -12,6 +12,7 @@ const helmet = require('helmet');
 
 const authRouter = require('./routes/auth');
 const todoRouter = require('./routes/todo');
+const quotesRouter = require('./routes/quotes');
 
 const notFoundMiddleware = require('./middleware/not-found');
 const errorHandlerMiddleware = require('./middleware/error-handler');
@@ -28,6 +29,7 @@ app.use(cors({ origin: 'http://localhost:5173' }))
 // routes
 app.use('/api/v1/auth', authRouter); // public authentication route
 app.use('/api/v1/todos', authMiddleware, todoRouter); // protected route
+app.use('/api/v1/quotes', quotesRouter); // public quotes route
 
 
 // error middleware

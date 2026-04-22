@@ -55,24 +55,27 @@ jobs:
         with:
           # 'with:' passes configuration parameters to the GitHub Action
           # These are custom options that setup-node supports
-          
+
           # node-version: which version of Node.js to install (18.x or 20.x in this case)
           node-version: ${{ matrix.node-version }}
-          
+
           # cache: 'npm' tells the action to cache npm dependencies for faster builds
           # Without caching, npm install downloads all packages every time (slower)
           # With caching, npm reuses downloaded packages from previous builds (faster)
           cache: 'npm'
+          cache-dependency-path: server/package-lock.json
           
       # Install project dependencies using npm ci (clean install)
       # npm ci is preferred in CI/CD for reproducible builds
       - name: Install dependencies
+        working-directory: server
         run: npm ci
         env:
           NODE_ENV: test
           
       # Run the complete test suite and enforce 80% code coverage threshold
       - name: Run test suite & enforce coverage
+        working-directory: server
         run: npm test -- --coverage --passWithNoTests
         env:
           NODE_ENV: test
@@ -87,7 +90,7 @@ jobs:
         if: always()
         with:
           name: coverage-report-node-${{ matrix.node-version }}
-          path: coverage/
+          path: server/coverage/
           
       # Display summary message when job completes (regardless of pass/fail)
       - name: Test Results Summary
