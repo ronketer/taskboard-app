@@ -20,6 +20,10 @@ const todoSchema = new mongoose.Schema({
     type: Number,
     unique: true,
   },
+  completed: {
+    type: Boolean,
+    default: false,
+  },
 }, { timestamps: true }); // adds 2 fields: createdAt, 
 
 // increment id before saving

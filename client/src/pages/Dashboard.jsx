@@ -68,6 +68,16 @@ export default function Dashboard() {
     }
   }
 
+  async function handleToggleComplete(id, completed) {
+    try {
+      setError("");
+      await api.put(`/todos/${id}`, { completed });
+      fetchTodos(page);
+    } catch {
+      setError("Failed to update todo");
+    }
+  }
+
   function handleLogout() {
     logout();
     navigate("/login");
@@ -110,6 +120,7 @@ export default function Dashboard() {
                   todo={todo}
                   onDelete={handleDelete}
                   onEdit={handleEdit}
+                  onToggleComplete={handleToggleComplete}
                 />
               ))}
             </>

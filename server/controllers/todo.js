@@ -45,22 +45,27 @@ const createTodo = async (req, res) => {
     id: todo.id,
     title: todo.title,
     description: todo.description,
+    completed: todo.completed,
   });
 };
 
 const updateTodo = async (req, res) => {
-  const { title, description } = req.body;
+  const { title, description, completed } = req.body;
   const userId = req.user.userId;
   const todoId = req.params.id;
 
-  if (!title && !description) {
-    throw new BadRequestError('At least one of Title or Description must be provided for update');
+  if (!title && !description && completed === undefined) {
+    throw new BadRequestError('At least one of Title, Description, or Completed must be provided for update');
   }
 
   let updateData = { description };
-  
+
   if (title) {
     updateData.title = validateTodoInput(title);
+  }
+
+  if (completed !== undefined) {
+    updateData.completed = completed;
   }
 
   const todo = await Todo.findOneAndUpdate(
@@ -74,9 +79,10 @@ const updateTodo = async (req, res) => {
   }
 
   res.status(StatusCodes.OK).json({
-    id : todo.id,
+    id: todo.id,
     title: todo.title,
     description: todo.description,
+    completed: todo.completed,
   });
 };
 
@@ -125,6 +131,7 @@ const getAllTodo = async (req, res) => {
       id: todo.id,
       title: todo.title,
       description: todo.description,
+      completed: todo.completed,
     })),
     page,
     pageCount,

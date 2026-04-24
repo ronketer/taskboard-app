@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { TextInput, Textarea, Button, Group, Card, Stack, Text } from "@mantine/core";
+import { TextInput, Textarea, Button, Group, Card, Stack, Text, Checkbox } from "@mantine/core";
 
-export default function TodoItem({ todo, onDelete, onEdit }) {
+export default function TodoItem({ todo, onDelete, onEdit, onToggleComplete }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(todo.title);
   const [description, setDescription] = useState(todo.description ?? "");
@@ -52,11 +52,25 @@ export default function TodoItem({ todo, onDelete, onEdit }) {
       ) : (
         <>
           <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <Text fw={600} size="md">{todo.title}</Text>
-              {todo.description && (
-                <Text size="sm" c="dimmed" mt={4}>{todo.description}</Text>
-              )}
+            <div className="flex items-start gap-3 flex-1">
+              <Checkbox
+                mt={3}
+                checked={todo.completed ?? false}
+                onChange={() => onToggleComplete(todo.id, !todo.completed)}
+              />
+              <div>
+                <Text
+                  fw={600}
+                  size="md"
+                  td={todo.completed ? "line-through" : undefined}
+                  c={todo.completed ? "dimmed" : undefined}
+                >
+                  {todo.title}
+                </Text>
+                {todo.description && (
+                  <Text size="sm" c="dimmed" mt={4}>{todo.description}</Text>
+                )}
+              </div>
             </div>
             <Group gap="xs" ml="md">
               <Button
