@@ -12,7 +12,7 @@ A full-stack task management application built with a Node.js/Express REST API a
 | Layer | Technologies |
 |-------|-------------|
 | Backend | Node.js 18, Express 4, Mongoose 8, MongoDB |
-| Frontend | React 18, Vite 5, Mantine, Tailwind CSS, React Router v6 |
+| Frontend | React 19, Vite 5, Mantine, Tailwind CSS, React Router v6 |
 | Auth | JSON Web Tokens (jsonwebtoken), bcryptjs |
 | Testing | Jest, Supertest, mongodb-memory-server |
 | CI/CD | GitHub Actions (Node 18 & 20 matrix) |
