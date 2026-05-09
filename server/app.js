@@ -24,7 +24,7 @@ app.use(helmet());// set security headers
 // app.use(xssSanitize()); // enhance security against xss threats
 
 
-app.use(cors({ origin: 'http://localhost:5173' }))
+app.use(cors({ origin:  process.env.CORS_ORIGIN || 'http://localhost:5173' }))
 
 // routes
 app.use('/api/v1/auth', authRouter); // public authentication route

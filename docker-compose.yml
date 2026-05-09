@@ -1,0 +1,19 @@
+ services:
+   server:
+     build: ./server
+     ports:
+       - "3000:3000"
+     environment:
+       MONGO_URI: ${MONGO_URI}
+       JWT_SECRET: ${JWT_SECRET}
+       JWT_EXPIRATION: ${JWT_EXPIRATION}
+       PORT: 3000
+       NODE_ENV: production
+       CORS_ORIGIN: http://localhost
+
+   client:
+     build: ./client
+     ports:
+       - "80:80"
+     depends_on:
+       - server

@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+.gitattributes
+.github
+
+# Dependencies (will be reinstalled in containers)
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+dist
+build
+coverage
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE & Editor
+.vscode
+.idea
+*.swp
+*.swo
+*.swn
+.DS_Store
+Thumbs.db
+
+# Testing
+tests
+jest.config.js
+*.test.js
+
+# Documentation
+README.md
+CLAUDE.md
+
+# Development
+.prettierrc
+.eslintrc
+.eslintignore
+
+# Docker & Orchestration
+docker-compose.yml
+Dockerfile
+.dockerignore
+k8s/
+
+# CI/CD
+.github/workflows
