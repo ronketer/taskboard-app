@@ -127,3 +127,17 @@ jobs:
       - name: Build React app
         working-directory: client
         run: npm run build
+
+  docker-build:
+    name: Build Docker Images
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Build server image
+        run: docker build -t todo-server:latest ./server
+
+      - name: Build client image
+        run: docker build -t todo-client:latest ./client

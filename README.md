@@ -3,9 +3,13 @@
 [![CI Pipeline](https://github.com/ronketer/todo-list-api/actions/workflows/node.js.yml/badge.svg)](https://github.com/ronketer/todo-list-api/actions)
 [![Coverage](https://img.shields.io/badge/Coverage-≥80%25-brightgreen)](#testing)
 [![Node](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white)](https://react.dev)
+[![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)](https://react.dev)
+[![Docker](https://img.shields.io/badge/Docker-multi--stage-2496ED?logo=docker&logoColor=white)](https://www.docker.com)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-Minikube-326CE5?logo=kubernetes&logoColor=white)](https://minikube.sigs.k8s.io)
 
 A full-stack task management application built with a Node.js/Express REST API and a React + Vite frontend. Implements JWT authentication, user-scoped data access, paginated queries, and a GitHub Actions CI pipeline that enforces ≥80% backend test coverage on every push.
+
+![](<todo_app_demo - frame at 0m16s.jpg>)
 
 ## Tech Stack
 
@@ -16,6 +20,8 @@ A full-stack task management application built with a Node.js/Express REST API a
 | Auth | JSON Web Tokens (jsonwebtoken), bcryptjs |
 | Testing | Jest, Supertest, mongodb-memory-server |
 | CI/CD | GitHub Actions (Node 18 & 20 matrix) |
+| Containers | Docker (multi-stage builds), Docker Compose |
+| Orchestration | Kubernetes (Minikube), ConfigMap, Secret, NodePort, ClusterIP |
 | Security | Helmet, controller-level validation, user-scoped DB queries |
 
 ## Features
@@ -26,6 +32,7 @@ A full-stack task management application built with a Node.js/Express REST API a
 - **User-scoped data** — every query filters by `createdBy: userId`; cross-user access is impossible at the query level
 - **Daily quotes** — public endpoint fetches a zen quote from ZenQuotes API and caches it server-side for 24 hours
 - **CI/CD pipeline** — GitHub Actions runs the full test suite across Node 18 and 20, blocks merge on coverage drop below 80%
+- **Containerized & orchestrated** — multi-stage Docker builds for both services; docker-compose for local dev; Kubernetes manifests (Deployments, Services, ConfigMap, Secret) for Minikube deployment
 
 ## Architecture
 
@@ -92,11 +99,77 @@ npm test -- tests/auth.test.js  # single file
 - **Input validation** — length and type checks in controllers run before any database call; Mongoose schema constraints provide a second validation layer
 - **User-scoped queries** — all todo operations include `createdBy: req.user.userId` in the filter, making cross-user data access structurally impossible
 
+## Deployment
+
+### Docker Compose
+
+The simplest way to run the full stack locally in production mode:
+
+```bash
+cp .env.example .env   # fill in MONGO_URI, JWT_SECRET, JWT_EXPIRATION
+docker compose up --build
+# app available at http://localhost
+```
+
+### Kubernetes (Minikube)
+
+Runs the exact same containers orchestrated by Kubernetes. Requires [minikube](https://minikube.sigs.k8s.io/docs/start/) and [kubectl](https://kubernetes.io/docs/tasks/tools/).
+
+```bash
+# 1. Start the cluster
+minikube start
+
+# 2. Point Docker CLI at Minikube's internal daemon
+#    (images built after this live inside Minikube, not on your host)
+minikube docker-env | Invoke-Expression   # Windows PowerShell
+eval $(minikube docker-env)               # Mac / Linux
+
+# 3. Build both images inside that context
+docker build -t todo-server:latest ./server
+docker build -t todo-client:latest ./client
+
+# 4. Fill in k8s/secret.yaml with your Atlas URI and JWT secret, then apply
+kubectl apply -f k8s/
+
+# 5. Open the app
+minikube service client
+```
+
+> `imagePullPolicy: Never` is intentional — it forces Kubernetes to use the locally built images rather than pulling from Docker Hub.
+
+**Kubernetes architecture:**
+
+```
+Browser
+  │
+  ▼  :30080 (NodePort)
+client pod  (nginx)
+  │
+  │  /api/*  →  proxy_pass
+  ▼
+server pod  (Node.js)  ←── ClusterIP service "server:3000"
+  │
+  ▼
+MongoDB Atlas  (external)
+```
+
+The nginx container serves the React SPA and proxies all `/api` requests to the backend via Kubernetes internal DNS (`server:3000`). The browser only ever talks to one origin.
+
+**Useful kubectl commands:**
+
+```bash
+kubectl get pods                    # both pods should show Running
+kubectl logs deployment/server      # backend logs
+kubectl logs deployment/client      # nginx logs
+kubectl describe pod -l app=server  # events (useful for CrashLoopBackOff)
+```
+
 ## Project Structure
 
 ```
 todo-list-api/
 ├── server/                         # Node.js + Express backend
+│   ├── Dockerfile                  # Single-stage Node.js Alpine image
 │   ├── app.js                      # Express app setup (middleware, routes)
 │   ├── controllers/                # Business logic
 │   ├── routes/                     # Express router wiring
@@ -109,15 +182,26 @@ todo-list-api/
 │   └── package.json
 │
 ├── client/                         # React + Vite frontend
+│   ├── Dockerfile                  # Multi-stage: Vite build → Nginx serve
+│   ├── nginx.conf                  # SPA fallback + /api proxy to server:3000
 │   ├── src/
 │   │   ├── pages/                  # Login, Register, Dashboard
 │   │   ├── components/             # TodoItem, TodoForm, ProtectedRoute
 │   │   ├── context/                # AuthContext (JWT + localStorage)
 │   │   ├── api/                    # Axios instance with auth interceptor
 │   │   └── App.jsx
-│   ├── vite.config.js              # Proxies /api → http://localhost:3000
+│   ├── vite.config.js              # Proxies /api → http://localhost:3000 (dev only)
 │   └── package.json
 │
+├── k8s/                            # Kubernetes manifests (Minikube)
+│   ├── server-deployment.yaml      # Backend pod
+│   ├── server-service.yaml         # ClusterIP — internal DNS "server:3000"
+│   ├── client-deployment.yaml      # Frontend pod
+│   ├── client-service.yaml         # NodePort 30080 — external browser access
+│   ├── configmap.yaml              # Non-sensitive env vars (PORT, NODE_ENV, …)
+│   └── secret.yaml                 # MONGO_URI, JWT_SECRET (gitignored)
+│
+├── docker-compose.yml              # Compose orchestration for local prod mode
 ├── .github/workflows/              # CI: test matrix + frontend build
 ├── .env.example                    # Required environment variables
 └── package.json                    # Root scripts (dev, test, build, install)

@@ -32,6 +32,8 @@ app.use('/api/v1/todos', authMiddleware, todoRouter); // protected route
 app.use('/api/v1/quotes', quotesRouter); // public quotes route
 
 
+app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
+
 // error middleware
 app.use(notFoundMiddleware); // 404 error
 app.use(errorHandlerMiddleware); // any else error
