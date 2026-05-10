@@ -1,0 +1,25 @@
+ apiVersion: apps/v1
+ kind: Deployment
+ metadata:
+   name: server
+ spec:
+   replicas: 1
+   selector:
+     matchLabels:
+       app: server
+   template:
+     metadata:
+       labels:
+         app: server
+     spec:
+       containers:
+         - name: server
+           image: todo-server:latest
+           imagePullPolicy: Never
+           ports:
+             - containerPort: 3000
+           envFrom:
+             - configMapRef:
+                 name: todo-config
+             - secretRef:
+                 name: todo-secrets
