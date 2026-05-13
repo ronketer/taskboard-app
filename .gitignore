@@ -66,3 +66,4 @@ server/scripts/
 # VITE-SPECIFIC (Frontend)
 # ============================================================================
 *.local
+/generated/prisma
