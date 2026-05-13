@@ -15,14 +15,14 @@ A full-stack task management application built with a Node.js/Express REST API a
 
 | Layer | Technologies |
 |-------|-------------|
-| Backend | Node.js 18, Express 4, Mongoose 8, MongoDB |
+| Backend | Node.js 18, Express 4, PostgreSQL, pg (node-postgres) |
 | Frontend | React 19, Vite 5, Mantine, Tailwind CSS, React Router v6 |
 | Auth | JSON Web Tokens (jsonwebtoken), bcryptjs |
-| Testing | Jest, Supertest, mongodb-memory-server |
+| Testing | Jest, Supertest, pg-mem (in-memory PostgreSQL) |
 | CI/CD | GitHub Actions (Node 18 & 20 matrix) |
 | Containers | Docker (multi-stage builds), Docker Compose |
 | Orchestration | Kubernetes (Minikube), ConfigMap, Secret, NodePort, ClusterIP |
-| Security | Helmet, controller-level validation, user-scoped DB queries |
+| Security | Helmet, controller-level validation, parameterized SQL queries, user-scoped DB queries |
 
 ## Features
 
@@ -49,17 +49,19 @@ routes/  (thin Express router wiring — no logic)
 middleware/authentication.js  (verifies Bearer JWT → attaches req.user.userId)
       │
       ▼
-controllers/  (all business logic and input validation)
+controllers/  (all business logic, input validation, raw SQL queries)
       │
       ▼
-models/  (Mongoose schemas, constraints, instance methods)
+db/pool.js  (pg connection pool → PostgreSQL)
 ```
 
 | Layer | Responsibility |
 |-------|----------------|
 | `routes/` | Maps HTTP methods and paths to controller functions only |
-| `controllers/` | Validates input, enforces business rules, calls models |
-| `models/` | Mongoose schemas with constraints; `User` has pre-save bcrypt hashing and `createJWT`/`verifyPassword` methods; `Todo` auto-increments a numeric `id` field used by all API routes |
+| `controllers/` | Validates input, enforces business rules, executes parameterized SQL via `db.pool.query()` |
+| `db/pool.js` | Exports a `pg.Pool` instance connected to `DATABASE_URL` |
+| `db/migrations/` | Plain SQL `CREATE TABLE` files — applied once to set up the schema |
+| `utils/auth.utils.js` | `hashPassword`, `verifyPassword`, `createJWT` — auth helpers used by the auth controller |
 | `middleware/authentication.js` | Verifies Bearer JWT and attaches `req.user.userId` to the request |
 | `errors/` | Custom error class hierarchy; `error-handler.js` maps them to HTTP status codes |
 
@@ -80,9 +82,9 @@ Controllers throw custom errors directly — `express-async-errors` catches them
 
 ## Testing
 
-Tests are **integration tests** — they exercise the full Express request/response cycle via Supertest with no mocking. Before the suite runs, `mongodb-memory-server` spins up an in-memory MongoDB instance so real Mongoose validation, pre-save hooks, and schema constraints are exercised on every test. Collections are wiped between each test for isolation.
+Tests are **integration tests** — they exercise the full Express request/response cycle via Supertest with no mocking. Before the suite runs, `pg-mem` creates an in-memory PostgreSQL instance and applies the full schema (same `CREATE TABLE` DDL as production), so real SQL constraints and foreign keys are exercised on every test. All rows are deleted between each test for isolation.
 
-Coverage is collected over `controllers/`, `middleware/`, `models/`, and `routes/`, and is gated at ≥80% — any PR that drops below that threshold fails CI.
+Coverage is collected over `controllers/`, `middleware/`, and `routes/`, and is gated at ≥80% — any PR that drops below that threshold fails CI.
 
 ```bash
 # From the server/ directory:
@@ -94,10 +96,11 @@ npm test -- tests/auth.test.js  # single file
 ## Security
 
 - **Stateless JWT auth** — tokens are signed with a secret and carry only `userId`; no server-side session state
-- **bcrypt (10 rounds)** — passwords are hashed in a Mongoose pre-save hook and never stored in plaintext
+- **bcrypt (10 rounds)** — passwords are hashed in the register controller via `utils/auth.utils.js` and never stored in plaintext
 - **Helmet** — sets security-relevant HTTP response headers (CSP, X-Frame-Options, etc.) on every request
-- **Input validation** — length and type checks in controllers run before any database call; Mongoose schema constraints provide a second validation layer
-- **User-scoped queries** — all todo operations include `createdBy: req.user.userId` in the filter, making cross-user data access structurally impossible
+- **Parameterized SQL** — all queries use `$1`/`$2` placeholders via `pg`; string interpolation into SQL is never used, preventing SQL injection by construction
+- **Input validation** — length and type checks in controllers run before any database call
+- **User-scoped queries** — all todo operations include `AND created_by = $N` in the SQL, making cross-user data access structurally impossible
 
 ## Deployment
 
@@ -106,7 +109,7 @@ npm test -- tests/auth.test.js  # single file
 The simplest way to run the full stack locally in production mode:
 
 ```bash
-cp .env.example .env   # fill in MONGO_URI, JWT_SECRET, JWT_EXPIRATION
+cp .env.example .env   # fill in DATABASE_URL, JWT_SECRET, JWT_EXPIRATION
 docker compose up --build
 # app available at http://localhost
 ```
@@ -150,7 +153,7 @@ client pod  (nginx)
 server pod  (Node.js)  ←── ClusterIP service "server:3000"
   │
   ▼
-MongoDB Atlas  (external)
+PostgreSQL  (local or hosted — Neon / Supabase / Railway)
 ```
 
 The nginx container serves the React SPA and proxies all `/api` requests to the backend via Kubernetes internal DNS (`server:3000`). The browser only ever talks to one origin.
@@ -173,10 +176,10 @@ todo-list-api/
 │   ├── app.js                      # Express app setup (middleware, routes)
 │   ├── controllers/                # Business logic
 │   ├── routes/                     # Express router wiring
-│   ├── models/                     # Mongoose schemas
+│   ├── db/                         # pg connection pool + SQL migration files
+│   ├── utils/                      # auth helpers (hash, verify, createJWT)
 │   ├── middleware/                 # JWT auth, error handler
 │   ├── errors/                     # Custom error hierarchy
-│   ├── db/                         # MongoDB connection
 │   ├── tests/                      # Integration test suite
 │   ├── jest.config.js
 │   └── package.json
@@ -212,7 +215,8 @@ todo-list-api/
 ### Prerequisites
 
 - Node.js v18+
-- A MongoDB Atlas URI (only required to run the server — tests use an in-memory database)
+- PostgreSQL (local install or a free hosted instance — [Neon](https://neon.tech), [Supabase](https://supabase.com), [Railway](https://railway.app))
+- Tests use `pg-mem` (in-memory PostgreSQL) — no database connection required to run the test suite
 
 ### Installation
 
@@ -231,10 +235,17 @@ Edit `.env` with your values:
 
 | Variable | Description |
 |----------|-------------|
-| `MONGO_URI` | MongoDB Atlas connection string |
+| `DATABASE_URL` | PostgreSQL connection string — e.g. `postgresql://user:pass@localhost:5432/todo_app` |
 | `JWT_SECRET` | Random secret for signing tokens (`openssl rand -hex 32`) |
 | `JWT_EXPIRATION` | Token lifetime (e.g. `30d`) |
 | `PORT` | Backend port (default: `3000`) |
+
+After setting `DATABASE_URL`, apply the schema migrations once:
+
+```bash
+psql $DATABASE_URL -f server/db/migrations/001_create_users.sql
+psql $DATABASE_URL -f server/db/migrations/002_create_todos.sql
+```
 
 ### Running Locally
 
