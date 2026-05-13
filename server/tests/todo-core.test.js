@@ -1,45 +1,33 @@
 const request = require('supertest');
 const app = require('../app');
-const jwt = require('jsonwebtoken');
-
-// Generate a valid token to bypass the auth middleware
-const getValidTestToken = (userId = '507f1f77bcf86cd799439011') => {
-  return jwt.sign(
-    { userId, name: 'Test User' }, 
-    process.env.JWT_SECRET || 'test-secret-key-for-jwt-signing',
-    { expiresIn: '30d' }
-  );
-};
 
 describe('Todo Core Logic - Happy Paths and Branches', () => {
   let authToken;
   let createdTodoId;
 
-  // Set up our token before running the tests
-  beforeAll(() => {
-    authToken = getValidTestToken();
-  });
-
-  // Seed the database before EACH test so it is never empty
   beforeEach(async () => {
-    const response = await request(app)
+    // Register a fresh user each test (setup.js deletes all rows after each test)
+    const regRes = await request(app)
+      .post('/api/v1/auth/register')
+      .send({ name: 'Core User', email: 'core@example.com', password: 'Password123!' });
+    authToken = regRes.body.token;
+
+    // Seed one todo so the DB is never empty when tests run
+    const todoRes = await request(app)
       .post('/api/v1/todos')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         title: 'Seeded CI/CD Todo',
-        description: 'This guarantees the DB is ready for our tests'
+        description: 'This guarantees the DB is ready for our tests',
       });
-    createdTodoId = response.body.id;
+    createdTodoId = todoRes.body.id;
   });
 
   it('should successfully create a todo', async () => {
     const response = await request(app)
       .post('/api/v1/todos')
       .set('Authorization', `Bearer ${authToken}`)
-      .send({
-        title: 'Complete CI/CD Pipeline',
-        description: 'Hit the 80% coverage mark'
-      });
+      .send({ title: 'Complete CI/CD Pipeline', description: 'Hit the 80% coverage mark' });
     expect(response.status).toBe(201);
   });
 
@@ -71,8 +59,6 @@ describe('Todo Core Logic - Happy Paths and Branches', () => {
       .set('Authorization', `Bearer ${authToken}`);
     expect(response.status).toBe(204);
   });
-
-  // --- NEW TESTS TO BOOST BRANCH COVERAGE ---
 
   it('should trigger pagination branch for page < 1', async () => {
     const response = await request(app)
@@ -108,7 +94,7 @@ describe('Todo Core Logic - Happy Paths and Branches', () => {
     const response = await request(app)
       .put(`/api/v1/todos/${createdTodoId}`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({}); // Sending nothing
+      .send({});
     expect(response.status).toBe(400);
   });
 

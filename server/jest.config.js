@@ -6,28 +6,26 @@ module.exports = {
     '^.+\\.js$': 'babel-jest',
   },
   setupFilesAfterEnv: ['./tests/setup.js'],
-  
-  // THE FIX: Only measure coverage in these specific folders!
+
+  // Measure coverage over app logic only (models/ removed — no models dir after PG migration)
   collectCoverageFrom: [
     'controllers/**/*.js',
     'middleware/**/*.js',
-    'models/**/*.js',
-    'routes/**/*.js'
+    'routes/**/*.js',
   ],
-  
+
   forceExit: true,
   detectOpenHandles: true,
   testTimeout: 30000,
   verbose: true,
   bail: false,
-  
-  // Our 80% enforcement
+
   coverageThreshold: {
     global: {
       branches: 80,
       functions: 80,
       lines: 80,
-      statements: 80
-    }
-  }
+      statements: 80,
+    },
+  },
 };

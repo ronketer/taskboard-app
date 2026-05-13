@@ -1,27 +1,15 @@
 const request = require('supertest');
 const app = require('../app');
-const Todo = require('../models/Todo');
-const jwt = require('jsonwebtoken');
-
-const getValidTestToken = (userId = '507f1f77bcf86cd799439011') => {
-  return jwt.sign(
-    { userId },
-    process.env.JWT_SECRET || 'test-secret-key-for-jwt-signing',
-    { expiresIn: '30d' }
-  );
-};
 
 describe('Todo Input Validation - Integration Tests', () => {
   let authToken;
 
   beforeEach(async () => {
-    authToken = getValidTestToken();
-    
-    try {
-      await Todo.deleteMany({});
-    } catch (error) {
-      // Collection may not exist yet
-    }
+    // Register a fresh user each test (setup.js deletes all rows after each test)
+    const res = await request(app)
+      .post('/api/v1/auth/register')
+      .send({ name: 'Val User', email: 'val@example.com', password: 'Password123!' });
+    authToken = res.body.token;
   });
 
   describe('POST /api/v1/todos - Title Length Validation', () => {
@@ -29,17 +17,14 @@ describe('Todo Input Validation - Integration Tests', () => {
       const response = await request(app)
         .post('/api/v1/todos')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          title: 'ab',
-          description: 'Test',
-        });
+        .send({ title: 'ab', description: 'Test' });
 
       expect(response.status).toBe(400);
       expect(
-        response.body.msg || 
-        response.body.message || 
-        response.body.error || 
-        JSON.stringify(response.body)
+        response.body.msg ||
+          response.body.message ||
+          response.body.error ||
+          JSON.stringify(response.body)
       ).toMatch(/title|length|minimum|3|characters/i);
     });
 
@@ -48,17 +33,14 @@ describe('Todo Input Validation - Integration Tests', () => {
       const response = await request(app)
         .post('/api/v1/todos')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          title: longTitle,
-          description: 'Test',
-        });
+        .send({ title: longTitle, description: 'Test' });
 
       expect(response.status).toBe(400);
       expect(
-        response.body.msg || 
-        response.body.message || 
-        response.body.error || 
-        JSON.stringify(response.body)
+        response.body.msg ||
+          response.body.message ||
+          response.body.error ||
+          JSON.stringify(response.body)
       ).toMatch(/title|length|maximum|50|characters/i);
     });
 
@@ -66,17 +48,14 @@ describe('Todo Input Validation - Integration Tests', () => {
       const response = await request(app)
         .post('/api/v1/todos')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          title: '   ',
-          description: 'Test',
-        });
+        .send({ title: '   ', description: 'Test' });
 
       expect(response.status).toBe(400);
       expect(
-        response.body.msg || 
-        response.body.message || 
-        response.body.error || 
-        JSON.stringify(response.body)
+        response.body.msg ||
+          response.body.message ||
+          response.body.error ||
+          JSON.stringify(response.body)
       ).toMatch(/title|content|empty|whitespace/i);
     });
 
@@ -84,10 +63,7 @@ describe('Todo Input Validation - Integration Tests', () => {
       const response = await request(app)
         .post('/api/v1/todos')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          title: 'Valid Todo Title',
-          description: 'Test description',
-        });
+        .send({ title: 'Valid Todo Title', description: 'Test description' });
 
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('title', 'Valid Todo Title');
@@ -97,10 +73,7 @@ describe('Todo Input Validation - Integration Tests', () => {
       const response = await request(app)
         .post('/api/v1/todos')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          title: 'ABC',
-          description: 'Test',
-        });
+        .send({ title: 'ABC', description: 'Test' });
 
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('title', 'ABC');
@@ -110,10 +83,7 @@ describe('Todo Input Validation - Integration Tests', () => {
       const response = await request(app)
         .post('/api/v1/todos')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          title: 'A'.repeat(50),
-          description: 'Test',
-        });
+        .send({ title: 'A'.repeat(50), description: 'Test' });
 
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('title', 'A'.repeat(50));
@@ -125,16 +95,14 @@ describe('Todo Input Validation - Integration Tests', () => {
       const response = await request(app)
         .post('/api/v1/todos')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          description: 'Test',
-        });
+        .send({ description: 'Test' });
 
       expect(response.status).toBe(400);
       expect(
-        response.body.msg || 
-        response.body.message || 
-        response.body.error || 
-        JSON.stringify(response.body)
+        response.body.msg ||
+          response.body.message ||
+          response.body.error ||
+          JSON.stringify(response.body)
       ).toMatch(/title|required/i);
     });
 
@@ -142,10 +110,7 @@ describe('Todo Input Validation - Integration Tests', () => {
       const response = await request(app)
         .post('/api/v1/todos')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          title: null,
-          description: 'Test',
-        });
+        .send({ title: null, description: 'Test' });
 
       expect(response.status).toBe(400);
     });
