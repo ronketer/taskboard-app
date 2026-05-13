@@ -1,8 +1,7 @@
 const { StatusCodes } = require('http-status-codes');
-const User = require('../models/User');
+const db = require('../db/pool');
+const { hashPassword, verifyPassword, createJWT } = require('../utils/auth.utils');
 const { UnauthenticatedError, BadRequestError } = require('../errors');
-
-//  handle user registration
 
 const register = async (req, res) => {
   const { name, email, password } = req.body;
@@ -13,46 +12,53 @@ const register = async (req, res) => {
     throw new BadRequestError('Name, email, and password are required.');
   }
 
-  const user = await User.create({
-    name: name.trim(),
-    email: email.trim(),
-    password,
-  });
-  
-  const token = user.createJWT();
-  
+  const hashed = await hashPassword(password);
+
+  let rows;
+  try {
+    ({ rows } = await db.pool.query(
+      `INSERT INTO users (name, email, password)
+       VALUES ($1, $2, $3)
+       RETURNING id`,
+      [name.trim(), email.trim(), hashed]
+    ));
+  } catch (err) {
+    if (err.code === '23505') {
+      throw new BadRequestError('Email already in use.');
+    }
+    throw err;
+  }
+
+  const token = createJWT(rows[0].id);
   res.status(StatusCodes.CREATED).json({ token });
 };
 
-//  handle user login
 const login = async (req, res) => {
-  const { email, password } = req.body; 
+  const { email, password } = req.body;
   const hasMissingField = [email, password].some(
     (value) => !value || `${value}`.trim() === ''
   );
   if (hasMissingField) {
     throw new BadRequestError('Email and password are required.');
   }
-  
-  const user = await User.findOne({ email });
-  
 
+  const { rows } = await db.pool.query(
+    `SELECT id, password FROM users WHERE email = $1`,
+    [email.trim()]
+  );
+
+  const user = rows[0];
   if (!user) {
     throw new UnauthenticatedError('Invalid email account');
   }
-  
 
-  // verify user password and throw an error if not matched
-  const isPasswordCorrect = await user.verifyPassword(password);
+  const isPasswordCorrect = await verifyPassword(password, user.password);
   if (!isPasswordCorrect) {
     throw new UnauthenticatedError('Invalid email account');
   }
-  
-  
-  const token = user.createJWT();
-  
+
+  const token = createJWT(user.id);
   res.status(StatusCodes.OK).json({ token });
 };
-
 
 module.exports = { login, register };
