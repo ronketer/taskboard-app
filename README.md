@@ -1,6 +1,6 @@
-# Full-Stack Todo Application
+# Full-Stack Taskboard
 
-[![CI Pipeline](https://github.com/ronketer/todo-list-api/actions/workflows/node.js.yml/badge.svg)](https://github.com/ronketer/todo-list-api/actions)
+[![CI Pipeline](https://github.com/ronketer/taskboard-app/actions/workflows/node.js.yml/badge.svg)](https://github.com/ronketer/taskboard-app/actions)
 [![Coverage](https://img.shields.io/badge/Coverage-≥80%25-brightgreen)](#testing)
 [![Node](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)](https://react.dev)
@@ -128,10 +128,10 @@ minikube docker-env | Invoke-Expression   # Windows PowerShell
 eval $(minikube docker-env)               # Mac / Linux
 
 # 3. Build both images inside that context
-docker build -t todo-server:latest ./server
-docker build -t todo-client:latest ./client
+docker build -t taskboard-server:latest ./server
+docker build -t taskboard-client:latest ./client
 
-# 4. Fill in k8s/secret.yaml with your Atlas URI and JWT secret, then apply
+# 4. Fill in k8s/secret.yaml with your DATABASE_URL and JWT secret, then apply
 kubectl apply -f k8s/
 
 # 5. Open the app
@@ -170,7 +170,7 @@ kubectl describe pod -l app=server  # events (useful for CrashLoopBackOff)
 ## Project Structure
 
 ```
-todo-list-api/
+taskboard-app/
 ├── server/                         # Node.js + Express backend
 │   ├── Dockerfile                  # Single-stage Node.js Alpine image
 │   ├── app.js                      # Express app setup (middleware, routes)
@@ -202,7 +202,7 @@ todo-list-api/
 │   ├── client-deployment.yaml      # Frontend pod
 │   ├── client-service.yaml         # NodePort 30080 — external browser access
 │   ├── configmap.yaml              # Non-sensitive env vars (PORT, NODE_ENV, …)
-│   └── secret.yaml                 # MONGO_URI, JWT_SECRET (gitignored)
+│   └── secret.yaml                 # DATABASE_URL, JWT_SECRET (gitignored)
 │
 ├── docker-compose.yml              # Compose orchestration for local prod mode
 ├── .github/workflows/              # CI: test matrix + frontend build
@@ -221,8 +221,8 @@ todo-list-api/
 ### Installation
 
 ```bash
-git clone https://github.com/ronketer/todo-list-api.git
-cd todo-list-api
+git clone https://github.com/ronketer/taskboard-app.git
+cd taskboard-app
 
 # Install all dependencies (server + client)
 npm run install:all
