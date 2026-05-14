@@ -1,19 +1,30 @@
- services:
-   server:
-     build: ./server
-     ports:
-       - "3000:3000"
-     environment:
-       MONGO_URI: ${MONGO_URI}
-       JWT_SECRET: ${JWT_SECRET}
-       JWT_EXPIRATION: ${JWT_EXPIRATION}
-       PORT: 3000
-       NODE_ENV: production
-       CORS_ORIGIN: http://localhost
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: taskboard
+      POSTGRES_USER: taskboard
+      POSTGRES_PASSWORD: taskboard
+    ports:
+      - "5432:5432"
 
-   client:
-     build: ./client
-     ports:
-       - "80:80"
-     depends_on:
-       - server
+  server:
+    build: ./server
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql://taskboard:taskboard@postgres:5432/taskboard
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+      PORT: 3000
+      NODE_ENV: production
+      CORS_ORIGIN: http://localhost
+
+  client:
+    build: ./client
+    ports:
+      - "80:80"
+    depends_on:
+      - server

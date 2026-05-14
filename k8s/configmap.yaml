@@ -1,10 +1,10 @@
 # holds non-sensitive env vars
- apiVersion: v1
- kind: ConfigMap
- metadata:
-   name: todo-config
- data:
-   PORT: "3000"
-   NODE_ENV: "production"
-   JWT_EXPIRATION: "30d"
-   CORS_ORIGIN: "http://localhost:30080"
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taskboard-config
+data:
+  PORT: "3000"
+  NODE_ENV: "production"
+  JWT_EXPIRATION: "30d"
+  CORS_ORIGIN: "http://localhost:30080"
