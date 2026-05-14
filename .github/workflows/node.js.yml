@@ -58,12 +58,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: server/package-lock.json
 
-      - name: Cache mongodb-memory-server binary
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/mongodb-binaries
-          key: mongodb-binary-${{ runner.os }}-${{ matrix.node-version }}
-
       # Install project dependencies using npm ci (clean install)
       # npm ci is preferred in CI/CD for reproducible builds
       - name: Install dependencies
@@ -78,7 +72,6 @@ jobs:
         run: npm test -- --coverage --passWithNoTests
         env:
           NODE_ENV: test
-          MONGO_URI: 'mongodb://localhost:27017/todo-list-api-test'
           JWT_SECRET: 'test-secret-key'
           PORT: 3001
           
