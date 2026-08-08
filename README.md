@@ -11,6 +11,8 @@ A full-stack task management application built with a Node.js/Express REST API a
 
 ![](<todo_app_demo - frame at 0m16s.jpg>)
 
+![Demo](todo_app_demo.gif)
+
 ## Tech Stack
 
 | Layer | Technologies |
