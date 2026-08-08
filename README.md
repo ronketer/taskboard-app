@@ -9,8 +9,6 @@
 
 A full-stack task management application built with a Node.js/Express REST API and a React + Vite frontend. Implements JWT authentication, user-scoped data access, paginated queries, and a GitHub Actions CI pipeline that enforces ≥80% backend test coverage on every push.
 
-![](<todo_app_demo - frame at 0m16s.jpg>)
-
 ![Demo](todo_app_demo.gif)
 
 ## Tech Stack
