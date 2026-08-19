@@ -89,6 +89,57 @@ jobs:
         if: always()
         run: echo "✅ Test execution completed. Check logs above for results."
 
+
+  postgres-integration:
+    name: PostgreSQL Integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: taskboard
+          POSTGRES_PASSWORD: taskboard
+          POSTGRES_DB: taskboard_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskboard -d taskboard_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      JWT_SECRET: test-secret-key-for-postgres-integration
+      JWT_EXPIRATION: 30d
+      DATABASE_URL: postgresql://taskboard:taskboard@localhost:5432/taskboard_test
+
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Apply migrations to fresh PostgreSQL
+        working-directory: server
+        run: npm run migrate
+
+      - name: Verify migration idempotency
+        working-directory: server
+        run: npm run migrate
+
+      - name: Run real PostgreSQL integration tests
+        working-directory: server
+        run: npm run test:postgres
+
   client-build:
     name: Build React Frontend
     needs: test

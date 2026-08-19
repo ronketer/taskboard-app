@@ -6,6 +6,7 @@
   "scripts": {
     "start": "nodemon app.js",
     "test": "jest --detectOpenHandles",
+    "test:postgres": "jest --config jest.postgres.config.js --runInBand --detectOpenHandles",
     "migrate": "node db/migrate.js",
     "start:prod": "node app.js"
   },

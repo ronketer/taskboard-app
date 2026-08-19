@@ -2,6 +2,7 @@ module.exports = {
   testEnvironment: 'node',
   coveragePathIgnorePatterns: ['/node_modules/'],
   testMatch: ['**/tests/**/*.test.js'],
+  testPathIgnorePatterns: ['<rootDir>/tests/postgres-db.test.js'],
   transform: {
     '^.+\\.js$': 'babel-jest',
   },
