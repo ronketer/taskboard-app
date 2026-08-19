@@ -12,6 +12,7 @@ const helmet = require('helmet');
 const authRouter = require('./routes/auth');
 const todoRouter = require('./routes/todo');
 const quotesRouter = require('./routes/quotes');
+const boardRouter = require('./routes/board');
 
 const notFoundMiddleware = require('./middleware/not-found');
 const errorHandlerMiddleware = require('./middleware/error-handler');
@@ -27,6 +28,7 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
 // routes
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/todos', authMiddleware, todoRouter);
+app.use('/api/v1/boards', authMiddleware, boardRouter);
 app.use('/api/v1/quotes', quotesRouter);
 
 app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
