@@ -91,19 +91,18 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (!selectedBoardId) {
-      setTodos([]);
-      setPage(1);
-      setPageCount(1);
-      return;
-    }
+    if (!selectedBoardId) return;
 
+    fetchTodos(selectedBoardId, 1);
+  }, [selectedBoardId, fetchTodos]);
+
+  function handleBoardSelection(boardId) {
     setTodos([]);
     setPage(1);
     setPageCount(1);
     setError("");
-    fetchTodos(selectedBoardId, 1);
-  }, [selectedBoardId, fetchTodos]);
+    setSelectedBoardId(boardId);
+  }
 
   async function handleCreateBoard(e) {
     e.preventDefault();
@@ -118,7 +117,7 @@ export default function Dashboard() {
       const { data: board } = await api.post("/boards", { name });
       setBoards((current) => [...current, board]);
       setNewBoardName("");
-      setSelectedBoardId(String(board.id));
+      handleBoardSelection(String(board.id));
     } catch (err) {
       setError(err.response?.data?.msg || "Failed to create board");
     } finally {
@@ -217,7 +216,7 @@ export default function Dashboard() {
               placeholder="Select a board"
               data={boardOptions}
               value={selectedBoardId || null}
-              onChange={(value) => setSelectedBoardId(value ?? "")}
+              onChange={(value) => handleBoardSelection(value ?? "")}
               searchable
               allowDeselect={false}
             />
