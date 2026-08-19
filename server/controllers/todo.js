@@ -50,10 +50,69 @@ const getTodo = async (req, res) => {
   res.status(StatusCodes.OK).json({ todo });
 };
 
+const createBoardTodo = async (req, res) => {
+  const todo = await todoService.createBoardTodo({
+    userId: req.user.userId,
+    boardId: req.params.boardId,
+    title: req.body.title,
+    description: req.body.description,
+  });
+
+  res.status(StatusCodes.CREATED).json(todo);
+};
+
+const updateBoardTodo = async (req, res) => {
+  const todo = await todoService.updateBoardTodo({
+    userId: req.user.userId,
+    boardId: req.params.boardId,
+    todoId: req.params.id,
+    title: req.body.title,
+    description: req.body.description,
+    completed: req.body.completed,
+  });
+
+  res.status(StatusCodes.OK).json(todo);
+};
+
+const deleteBoardTodo = async (req, res) => {
+  await todoService.deleteBoardTodo({
+    userId: req.user.userId,
+    boardId: req.params.boardId,
+    todoId: req.params.id,
+  });
+
+  res.status(StatusCodes.NO_CONTENT).end();
+};
+
+const getAllBoardTodos = async (req, res) => {
+  const result = await todoService.getAllBoardTodos({
+    userId: req.user.userId,
+    boardId: req.params.boardId,
+    page: req.query.p,
+  });
+
+  res.status(StatusCodes.OK).json(result);
+};
+
+const getBoardTodo = async (req, res) => {
+  const todo = await todoService.getBoardTodo({
+    userId: req.user.userId,
+    boardId: req.params.boardId,
+    todoId: req.params.id,
+  });
+
+  res.status(StatusCodes.OK).json({ todo });
+};
+
 module.exports = {
   createTodo,
   updateTodo,
   deleteTodo,
   getAllTodo,
   getTodo,
+  createBoardTodo,
+  updateBoardTodo,
+  deleteBoardTodo,
+  getAllBoardTodos,
+  getBoardTodo,
 };

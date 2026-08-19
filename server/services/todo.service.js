@@ -1,5 +1,6 @@
 const { NotFoundError, BadRequestError } = require('../errors');
 const todoRepository = require('../repositories/todo.repository');
+const boardService = require('./board.service');
 
 const PAGE_SIZE = 10;
 
@@ -131,10 +132,139 @@ const getTodo = async ({ userId, todoId }) => {
   return todo;
 };
 
+const createBoardTodo = async ({ userId, boardId, title, description }) => {
+  const { boardId: parsedBoardId } = await boardService.authorizeBoardMember({
+    userId,
+    boardId,
+  });
+
+  const validTitle = validateTodoInput(title);
+  if (!validTitle) {
+    throw new BadRequestError('Title is required');
+  }
+
+  return todoRepository.createForBoard({
+    boardId: parsedBoardId,
+    userId,
+    title: validTitle,
+    description: description || null,
+  });
+};
+
+const updateBoardTodo = async ({
+  userId,
+  boardId,
+  todoId,
+  title,
+  description,
+  completed,
+}) => {
+  const { boardId: parsedBoardId } = await boardService.authorizeBoardMember({
+    userId,
+    boardId,
+  });
+  const parsedTodoId = parseTodoId(todoId);
+
+  if (!title && !description && completed === undefined) {
+    throw new BadRequestError(
+      'At least one of Title, Description, or Completed must be provided for update'
+    );
+  }
+
+  const patch = {};
+
+  if (title) {
+    patch.title = validateTodoInput(title);
+  }
+
+  if (description) {
+    patch.description = description;
+  }
+
+  if (completed !== undefined) {
+    patch.completed = completed;
+  }
+
+  const todo = await todoRepository.updateByIdAndBoardId({
+    todoId: parsedTodoId,
+    boardId: parsedBoardId,
+    patch,
+  });
+
+  if (!todo) {
+    throw new NotFoundError(`No Todo with id ${parsedTodoId}`);
+  }
+
+  return todo;
+};
+
+const deleteBoardTodo = async ({ userId, boardId, todoId }) => {
+  const { boardId: parsedBoardId } = await boardService.authorizeBoardMember({
+    userId,
+    boardId,
+  });
+  const parsedTodoId = parseTodoId(todoId);
+
+  const deleted = await todoRepository.deleteByIdAndBoardId(parsedTodoId, parsedBoardId);
+
+  if (!deleted) {
+    throw new NotFoundError(`no Todo with id ${parsedTodoId}`);
+  }
+};
+
+const getAllBoardTodos = async ({ userId, boardId, page }) => {
+  const { boardId: parsedBoardId } = await boardService.authorizeBoardMember({
+    userId,
+    boardId,
+  });
+
+  let currentPage = parseInt(page) || 1;
+  if (currentPage < 1) currentPage = 1;
+
+  const totalTodos = await todoRepository.countByBoardId(parsedBoardId);
+  const pageCount = Math.ceil(totalTodos / PAGE_SIZE) || 1;
+
+  if (currentPage > pageCount) currentPage = pageCount;
+
+  const offset = (currentPage - 1) * PAGE_SIZE;
+  const data = await todoRepository.findAllByBoardId(parsedBoardId, {
+    limit: PAGE_SIZE,
+    offset,
+  });
+
+  return {
+    data,
+    page: currentPage,
+    pageCount,
+    totalTodos,
+  };
+};
+
+const getBoardTodo = async ({ userId, boardId, todoId }) => {
+  const { boardId: parsedBoardId } = await boardService.authorizeBoardMember({
+    userId,
+    boardId,
+  });
+  const parsedTodoId = parseTodoId(todoId);
+
+  const todo = await todoRepository.findByIdAndBoardId(parsedTodoId, parsedBoardId);
+
+  if (!todo) {
+    throw new NotFoundError(`No Todo with id ${parsedTodoId}`);
+  }
+
+  return todo;
+};
+
 module.exports = {
   createTodo,
   updateTodo,
   deleteTodo,
   getAllTodos,
   getTodo,
+  createBoardTodo,
+  updateBoardTodo,
+  deleteBoardTodo,
+  getAllBoardTodos,
+  getBoardTodo,
 };

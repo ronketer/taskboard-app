@@ -66,6 +66,19 @@ const requireOwner = async ({ boardId, userId }) => {
   return membership;
 };
 
+const authorizeBoardMember = async ({ boardId, userId }) => {
+  const parsedBoardId = parsePositiveId(boardId, 'board ID');
+  const membership = await requireMembership({
+    boardId: parsedBoardId,
+    userId,
+  });
+
+  return {
+    boardId: parsedBoardId,
+    membership,
+  };
+};
+
 const createPersonalBoardForUser = async ({ userId, client }) => {
   const board = await boardRepository.create(
     {
@@ -195,4 +208,5 @@ module.exports = {
   listMembers,
   addMember,
   removeMember,
+  authorizeBoardMember,
 };
