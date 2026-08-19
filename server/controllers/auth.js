@@ -3,6 +3,12 @@ const db = require('../db/pool');
 const { hashPassword, verifyPassword, createJWT } = require('../utils/auth.utils');
 const { UnauthenticatedError, BadRequestError } = require('../errors');
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const isValidEmail = (email) => {
+  return typeof email === 'string' && EMAIL_REGEX.test(email);
+};
+
 const register = async (req, res) => {
   const { name, email, password } = req.body;
   const hasMissingField = [name, email, password].some(
@@ -10,6 +16,25 @@ const register = async (req, res) => {
   );
   if (hasMissingField) {
     throw new BadRequestError('Name, email, and password are required.');
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!isValidEmail(normalizedEmail)) {
+    throw new BadRequestError('Invalid email');
+  }
+
+  if (typeof password !== 'string' || password.length < 8) {
+    throw new BadRequestError('Password must be at least 8 characters');
+  }
+
+  // Check for existing account (including legacy mixed-case stored emails)
+  const existingUser = await db.pool.query(
+    `SELECT id FROM users WHERE LOWER(email) = $1`,
+    [normalizedEmail]
+  );
+  if (existingUser.rows.length > 0) {
+    throw new BadRequestError('Email already in use.');
   }
 
   const hashed = await hashPassword(password);
@@ -20,7 +45,7 @@ const register = async (req, res) => {
       `INSERT INTO users (name, email, password)
        VALUES ($1, $2, $3)
        RETURNING id`,
-      [name.trim(), email.trim(), hashed]
+      [name.trim(), normalizedEmail, hashed]
     ));
   } catch (err) {
     if (err.code === '23505') {
@@ -42,9 +67,11 @@ const login = async (req, res) => {
     throw new BadRequestError('Email and password are required.');
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+
   const { rows } = await db.pool.query(
-    `SELECT id, password FROM users WHERE email = $1`,
-    [email.trim()]
+    `SELECT id, password FROM users WHERE LOWER(email) = $1`,
+    [normalizedEmail]
   );
 
   const user = rows[0];
