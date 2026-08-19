@@ -110,6 +110,44 @@ const hasValidResponseStructure = (response) => {
   );
 };
 
+const { newDb } = require('pg-mem');
+
+/**
+ * Creates and configures an in-memory PostgreSQL instance for tests.
+ * @returns {import('pg-mem').IMemoryDb}
+ */
+const createTestDb = () => {
+  const mem = newDb({ noAstCoverageCheck: true });
+
+  // Register PostgreSQL string functions in pg-mem
+  mem.public.registerFunction({
+    name: 'btrim',
+    args: [mem.public.getType('text')],
+    returns: mem.public.getType('text'),
+    implementation: (s) => (s ? s.trim() : s),
+  });
+  mem.public.registerFunction({
+    name: 'btrim',
+    args: [mem.public.getType('varchar')],
+    returns: mem.public.getType('varchar'),
+    implementation: (s) => (s ? s.trim() : s),
+  });
+  mem.public.registerFunction({
+    name: 'trim',
+    args: [mem.public.getType('text')],
+    returns: mem.public.getType('text'),
+    implementation: (s) => (s ? s.trim() : s),
+  });
+  mem.public.registerFunction({
+    name: 'trim',
+    args: [mem.public.getType('varchar')],
+    returns: mem.public.getType('varchar'),
+    implementation: (s) => (s ? s.trim() : s),
+  });
+
+  return mem;
+};
+
 module.exports = {
   validUserData,
   validTodoData,
@@ -120,4 +158,5 @@ module.exports = {
   isSuccessResponse,
   getValidToken,
   hasValidResponseStructure,
+  createTestDb,
 };

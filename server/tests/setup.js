@@ -7,10 +7,10 @@ process.env.DATABASE_URL = 'postgresql://localhost/test';
 
 jest.setTimeout(30000);
 
-const { newDb } = require('pg-mem');
+const { createTestDb } = require('./test-utils');
 const { runMigrations } = require('../db/migrate');
 
-const mem = newDb({ noAstCoverageCheck: true });
+const mem = createTestDb();
 
 const { Pool } = mem.adapters.createPg();
 const memPool = new Pool();

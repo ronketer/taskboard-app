@@ -30,7 +30,7 @@ const register = async (req, res) => {
 
   // Check for existing account (including legacy mixed-case stored emails)
   const existingUser = await db.pool.query(
-    `SELECT id FROM users WHERE LOWER(email) = $1`,
+    `SELECT id FROM users WHERE LOWER(BTRIM(email)) = $1`,
     [normalizedEmail]
   );
   if (existingUser.rows.length > 0) {
@@ -70,7 +70,7 @@ const login = async (req, res) => {
   const normalizedEmail = email.trim().toLowerCase();
 
   const { rows } = await db.pool.query(
-    `SELECT id, password FROM users WHERE LOWER(email) = $1`,
+    `SELECT id, password FROM users WHERE LOWER(BTRIM(email)) = $1`,
     [normalizedEmail]
   );
 
