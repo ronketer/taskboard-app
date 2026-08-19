@@ -1,268 +1,533 @@
 # Full-Stack Taskboard
 
 [![CI Pipeline](https://github.com/ronketer/taskboard-app/actions/workflows/node.js.yml/badge.svg)](https://github.com/ronketer/taskboard-app/actions)
-[![Coverage](https://img.shields.io/badge/Coverage-≥80%25-brightgreen)](#testing)
 [![Node](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)](https://react.dev)
-[![Docker](https://img.shields.io/badge/Docker-multi--stage-2496ED?logo=docker&logoColor=white)](https://www.docker.com)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-Minikube-326CE5?logo=kubernetes&logoColor=white)](https://minikube.sigs.k8s.io)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-Minikube-326CE5?logo=kubernetes&logoColor=white)](https://minikube.sigs.k8s.io/)
 
-A full-stack task management application built with a Node.js/Express REST API and a React + Vite frontend. Implements JWT authentication, user-scoped data access, paginated queries, and a GitHub Actions CI pipeline that enforces ≥80% backend test coverage on every push.
+A multi-user task board built as a **modular monolith** with Node.js/Express, PostgreSQL, and React.
+
+The project started as a user-scoped CRUD application and was evolved into a board-based system with explicit application and persistence boundaries, transactional board creation, role-based membership rules, versioned schema migrations, data backfills, and a dedicated real-PostgreSQL CI path.
 
 ![Demo](todo_app_demo.gif)
+
+## What This Project Demonstrates
+
+- **Layered backend architecture** — routes → controllers → services → repositories → PostgreSQL
+- **Board-scoped authorization** — access is derived from `board_members`, not from trusting client-supplied resource IDs
+- **Transactional workflows** — board + OWNER membership and user + Personal board creation are atomic
+- **Database-enforced invariants** — foreign keys, composite keys, partial unique indexes, CHECK constraints, and normalized-email uniqueness
+- **Schema evolution** — forward-only versioned migrations backfill existing users/todos into Personal boards without discarding data
+- **Defense in depth** — services authorize board membership and repository queries still scope task reads/writes by `board_id`
+- **Fast + production-realistic testing** — `pg-mem` for the normal suite and a separate PostgreSQL 17 integration job in GitHub Actions
+- **End-to-end delivery** — React frontend, Docker Compose, Docker images, Kubernetes manifests, and CI
 
 ## Tech Stack
 
 | Layer | Technologies |
-|-------|-------------|
-| Backend | Node.js 18, Express 4, PostgreSQL, pg (node-postgres) |
-| Frontend | React 19, Vite 5, Mantine, Tailwind CSS, React Router v6 |
-| Auth | JSON Web Tokens (jsonwebtoken), bcryptjs |
-| Testing | Jest, Supertest, pg-mem (in-memory PostgreSQL) |
-| CI/CD | GitHub Actions (Node 18 & 20 matrix) |
-| Containers | Docker (multi-stage builds), Docker Compose |
-| Orchestration | Kubernetes (Minikube), ConfigMap, Secret, NodePort, ClusterIP |
-| Security | Helmet, controller-level validation, parameterized SQL queries, user-scoped DB queries |
+|---|---|
+| Backend | Node.js, Express 4, `pg` / node-postgres |
+| Database | PostgreSQL 17, plain parameterized SQL, versioned SQL migrations |
+| Frontend | React 19, Vite 8, Mantine 9, Tailwind CSS 4, React Router 7, Axios |
+| Auth | JWT (`jsonwebtoken`), `bcryptjs` |
+| Testing | Jest 30, Supertest, `pg-mem`, real PostgreSQL integration tests |
+| CI/CD | GitHub Actions, Node 18/20 test matrix, PostgreSQL 17 service container |
+| Containers | Docker, Docker Compose, Nginx |
+| Orchestration | Kubernetes / Minikube |
 
 ## Features
 
-- **JWT Authentication** — stateless auth; register and login return a signed token stored client-side
-- **Full CRUD** — create, read, update, and delete todos with title and description
-- **Pagination** — server-side pagination (10 items/page) via `?p=N` query parameter
-- **User-scoped data** — every query filters by `createdBy: userId`; cross-user access is impossible at the query level
-- **Daily quotes** — public endpoint fetches a zen quote from ZenQuotes API and caches it server-side for 24 hours
-- **CI/CD pipeline** — GitHub Actions runs the full test suite across Node 18 and 20, blocks merge on coverage drop below 80%
-- **Containerized & orchestrated** — multi-stage Docker builds for both services; docker-compose for local dev; Kubernetes manifests (Deployments, Services, ConfigMap, Secret) for Minikube deployment
+### Boards and tasks
+
+- Every account receives a **Personal** board during registration
+- Users can create additional shared boards
+- A board has exactly one `OWNER`; additional users join as `MEMBER`
+- `OWNER` can add registered users by email and remove members
+- Both `OWNER` and `MEMBER` can create, read, update, and delete board tasks
+- The React dashboard can switch between boards and create new boards
+- Server-side task pagination uses 10 items per page with deterministic `created_at DESC, id DESC` ordering
+
+### Authentication and authorization
+
+- Stateless Bearer JWT authentication
+- Passwords hashed with bcrypt
+- Email addresses normalized with `LOWER(BTRIM(email))`
+- Authenticated non-members receive `404` for inaccessible boards to avoid leaking resource existence
+- Board membership is checked in the service layer before board task operations
+- Task repository operations remain constrained by `board_id` after authorization
+
+### Compatibility
+
+The original `/api/v1/todos` API remains available and is intentionally scoped to the authenticated user's Personal board. The current React client uses the board-scoped API.
 
 ## Architecture
 
+```mermaid
+flowchart TD
+    UI["React client"] -->|HTTP / JSON + Bearer JWT| R["Express routes"]
+    R --> A["Authentication middleware"]
+    A --> C["Controllers"]
+    C --> S["Application services"]
+    S --> Repo["Repositories"]
+    Repo --> DB[("PostgreSQL")]
+
+    S -->|"authorization"| BM["Board membership rules"]
+    S -->|"transaction orchestration"| TX["withTransaction()"]
+    TX --> Repo
+
+    classDef db fill:#eef,stroke:#446;
+    class DB db;
 ```
-client request
-      │
-      ▼
-app.js  (Helmet, CORS, JSON body parser)
-      │
-      ▼
-routes/  (thin Express router wiring — no logic)
-      │
-      ▼
-middleware/authentication.js  (verifies Bearer JWT → attaches req.user.userId)
-      │
-      ▼
-controllers/  (all business logic, input validation, raw SQL queries)
-      │
-      ▼
-db/pool.js  (pg connection pool → PostgreSQL)
-```
+
+### Layer responsibilities
 
 | Layer | Responsibility |
-|-------|----------------|
-| `routes/` | Maps HTTP methods and paths to controller functions only |
-| `controllers/` | Validates input, enforces business rules, executes parameterized SQL via `db.pool.query()` |
-| `db/pool.js` | Exports a `pg.Pool` instance connected to `DATABASE_URL` |
-| `db/migrations/` | Plain SQL `CREATE TABLE` files — applied once to set up the schema |
-| `utils/auth.utils.js` | `hashPassword`, `verifyPassword`, `createJWT` — auth helpers used by the auth controller |
-| `middleware/authentication.js` | Verifies Bearer JWT and attaches `req.user.userId` to the request |
-| `errors/` | Custom error class hierarchy; `error-handler.js` maps them to HTTP status codes |
+|---|---|
+| `routes/` | Express route declarations and middleware wiring |
+| `controllers/` | HTTP-only adapter: request extraction, service invocation, status/JSON response |
+| `services/` | Validation, authorization, pagination rules, transaction orchestration, application workflows |
+| `repositories/` | Parameterized SQL and database row mapping |
+| `db/migrations/` | Forward-only schema/data migrations |
+| `middleware/authentication.js` | Verifies Bearer JWT and attaches `req.user.userId` |
+| `errors/` | Typed application errors translated by centralized error middleware |
 
-Controllers throw custom errors directly — `express-async-errors` catches them without requiring `next(err)`.
+This is intentionally a **modular monolith**. The application is small enough that microservices, a message broker, CQRS, or a dependency-injection framework would add operational complexity without solving a current problem.
+
+## Domain Model
+
+```mermaid
+erDiagram
+    USERS ||--o{ BOARD_MEMBERS : joins
+    BOARDS ||--|{ BOARD_MEMBERS : has
+    BOARDS ||--o{ TODOS : contains
+    USERS ||--o{ TODOS : creates
+
+    USERS {
+        int id PK
+        varchar name
+        varchar email
+        text password
+        timestamptz created_at
+    }
+
+    BOARDS {
+        int id PK
+        varchar name
+        int created_by FK
+        boolean is_personal
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    BOARD_MEMBERS {
+        int board_id PK,FK
+        int user_id PK,FK
+        varchar role
+        timestamptz joined_at
+    }
+
+    TODOS {
+        int id PK
+        int board_id FK
+        int created_by FK
+        varchar title
+        text description
+        boolean completed
+        timestamptz created_at
+        timestamptz updated_at
+    }
+```
+
+Important database invariants include:
+
+- `(board_id, user_id)` is the primary key of `board_members`
+- `role` is restricted to `OWNER` or `MEMBER`
+- a partial unique index allows at most one `OWNER` per board
+- a partial unique index allows at most one Personal board per creator
+- `todos.board_id` is required and references `boards(id)`
+- `LOWER(BTRIM(email))` has a unique expression index
+- task-list indexes match the current ownership/board pagination access paths
+
+## Authorization Model
+
+Authentication answers **who is making the request**. Application services answer **what that user may do**.
+
+| Operation | OWNER | MEMBER | Non-member |
+|---|---:|---:|---:|
+| List/view board tasks | ✅ | ✅ | 404 |
+| Create/update/delete board tasks | ✅ | ✅ | 404 |
+| List board members | ✅ | ✅ | 404 |
+| Add member | ✅ | ❌ (403) | 404 |
+| Remove member | ✅ | ❌ (403) | 404 |
+| Remove OWNER | ❌ | ❌ | — |
+
+For task operations the service first verifies board membership, then the repository still includes `board_id` in the SQL predicate. Knowing a task ID is therefore insufficient to access a task through another board.
+
+## Transaction Boundaries
+
+### Registration
+
+A user must never exist without the Personal board expected by the application:
+
+```text
+BEGIN
+  create user
+  create Personal board
+  create OWNER membership
+COMMIT
+```
+
+If any step fails, the transaction rolls back.
+
+### Board creation
+
+Shared board creation follows the same invariant:
+
+```text
+BEGIN
+  create board
+  create OWNER membership
+COMMIT
+```
+
+All statements in a transaction use the same checked-out PostgreSQL client.
+
+## Database Migrations
+
+Migrations live in `server/db/migrations/` and are applied by the project's versioned migration runner.
+
+Current evolution:
+
+```text
+001  users
+002  todos
+003  normalized case-insensitive email uniqueness
+004  todo ownership/pagination index
+005  boards + memberships + todo board backfill
+```
+
+Migration `005` preserves existing application data:
+
+1. creates `boards` and `board_members`;
+2. creates one Personal board per existing user;
+3. assigns each user as that board's `OWNER`;
+4. backfills existing todos to the matching Personal board;
+5. makes `todos.board_id` non-null;
+6. adds board/membership/task indexes and constraints.
+
+Applied versions are tracked in `schema_migrations`. Each unapplied migration runs atomically and is recorded only after success.
+
+Run migrations explicitly:
+
+```bash
+npm run migrate
+```
+
+Docker Compose runs migrations before starting the API.
 
 ## API Reference
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/api/v1/auth/register` | — | Create account; returns JWT |
-| POST | `/api/v1/auth/login` | — | Login; returns JWT |
-| GET | `/api/v1/todos` | Bearer JWT | List todos (paginated, `?p=N`) |
-| POST | `/api/v1/todos` | Bearer JWT | Create todo |
-| GET | `/api/v1/todos/:id` | Bearer JWT | Get single todo by numeric id |
-| PUT | `/api/v1/todos/:id` | Bearer JWT | Update todo |
-| DELETE | `/api/v1/todos/:id` | Bearer JWT | Delete todo |
-| GET | `/api/v1/quotes/today` | — | Zen quote of the day (cached 24h) |
+All protected endpoints require:
+
+```http
+Authorization: Bearer <JWT>
+```
+
+### Authentication
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/v1/auth/register` | Create account, Personal board, and return JWT |
+| POST | `/api/v1/auth/login` | Authenticate and return JWT |
+
+### Boards
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/boards` | List boards visible to the authenticated user |
+| POST | `/api/v1/boards` | Create a shared board and OWNER membership |
+| GET | `/api/v1/boards/:boardId/members` | List board membership |
+| POST | `/api/v1/boards/:boardId/members` | OWNER: add an existing user by email |
+| DELETE | `/api/v1/boards/:boardId/members/:userId` | OWNER: remove a MEMBER |
+
+### Board tasks
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/boards/:boardId/todos?p=N` | Paginated board tasks |
+| POST | `/api/v1/boards/:boardId/todos` | Create board task |
+| GET | `/api/v1/boards/:boardId/todos/:id` | Get board task |
+| PUT | `/api/v1/boards/:boardId/todos/:id` | Update board task |
+| DELETE | `/api/v1/boards/:boardId/todos/:id` | Delete board task |
+
+### Compatibility and utility endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| GET/POST | `/api/v1/todos` | Legacy Personal-board list/create API |
+| GET/PUT/DELETE | `/api/v1/todos/:id` | Legacy Personal-board task operations |
+| GET | `/api/v1/quotes/today` | Public daily ZenQuotes endpoint with 24h process-local cache |
+| GET | `/health` | API health check |
+
+Errors use a stable JSON envelope:
+
+```json
+{
+  "msg": "..."
+}
+```
 
 ## Testing
 
-Tests are **integration tests** — they exercise the full Express request/response cycle via Supertest with no mocking. Before the suite runs, `pg-mem` creates an in-memory PostgreSQL instance and applies the full schema (same `CREATE TABLE` DDL as production), so real SQL constraints and foreign keys are exercised on every test. All rows are deleted between each test for isolation.
+The backend uses two complementary test paths.
 
-Coverage is collected over `controllers/`, `middleware/`, and `routes/`, and is gated at ≥80% — any PR that drops below that threshold fails CI.
+### Fast integration suite
 
 ```bash
-# From the server/ directory:
-npm test                        # run the full test suite
-npm test -- --coverage          # with coverage report
-npm test -- tests/auth.test.js  # single file
+npm test --prefix server
 ```
+
+The normal suite uses Jest + Supertest and an isolated `pg-mem` database. It applies the real migration SQL files rather than maintaining a second test-only schema.
+
+The suite currently contains **120 automated tests** covering authentication, validation, migrations, authorization isolation, Board/Member rules, legacy Personal-board behavior, and board-scoped task CRUD.
+
+`pg-mem` compatibility shims are kept test-only; production SQL is not weakened to match the in-memory emulator.
+
+### Real PostgreSQL integration suite
+
+Database-specific behavior is also exercised against PostgreSQL 17:
+
+```bash
+npm run test:postgres --prefix server
+```
+
+The dedicated suite verifies behavior that an emulator cannot authoritatively prove, including:
+
+- migration execution and repeat/idempotent execution
+- normalized-email expression uniqueness
+- the partial unique single-OWNER index
+- unique board membership
+- foreign-key integrity
+- board/member API workflows against real PostgreSQL
+- board-task authorization/CRUD against real PostgreSQL
+
+The normal Jest config excludes the PostgreSQL-only invariant test so the two environments stay intentionally separate.
+
+## CI Pipeline
+
+GitHub Actions runs on pushes and pull requests to `main` / `master`.
+
+```text
+Run Tests
+├── Node 18
+└── Node 20
+    └── Jest + coverage
+
+PostgreSQL Integration
+└── PostgreSQL 17 service
+    ├── npm run migrate
+    ├── npm run migrate        # idempotency
+    └── npm run test:postgres
+
+Build React Frontend
+├── lint
+└── vite build
+
+Build Docker Images
+├── server
+└── client
+```
+
+This split keeps the normal feedback loop fast while still testing PostgreSQL-specific constraints and transaction behavior in CI.
 
 ## Security
 
-- **Stateless JWT auth** — tokens are signed with a secret and carry only `userId`; no server-side session state
-- **bcrypt (10 rounds)** — passwords are hashed in the register controller via `utils/auth.utils.js` and never stored in plaintext
-- **Helmet** — sets security-relevant HTTP response headers (CSP, X-Frame-Options, etc.) on every request
-- **Parameterized SQL** — all queries use `$1`/`$2` placeholders via `pg`; string interpolation into SQL is never used, preventing SQL injection by construction
-- **Input validation** — length and type checks in controllers run before any database call
-- **User-scoped queries** — all todo operations include `AND created_by = $N` in the SQL, making cross-user data access structurally impossible
+- **JWT authentication** — stateless server-side authentication; tokens carry the user ID
+- **bcrypt password hashing** — plaintext passwords are never persisted
+- **Normalized unique email identity** — application normalization plus a PostgreSQL unique expression index
+- **Parameterized SQL** — user-controlled values are passed through PostgreSQL parameters
+- **Board-scoped authorization** — membership checks occur in application services
+- **Defense-in-depth predicates** — task reads/writes are still constrained by `board_id`
+- **Resource hiding** — authenticated non-members receive 404 for inaccessible boards
+- **Database constraints** — important invariants remain protected if an application code path is wrong or concurrent
+- **Helmet + CORS** — HTTP security headers and configured browser origin policy
 
-## Deployment
-
-### Docker Compose
-
-The simplest way to run the full stack locally in production mode:
-
-```bash
-cp .env.example .env   # fill in DATABASE_URL, JWT_SECRET, JWT_EXPIRATION
-docker compose up --build
-# app available at http://localhost
-```
-
-### Kubernetes (Minikube)
-
-Runs the exact same containers orchestrated by Kubernetes. Requires [minikube](https://minikube.sigs.k8s.io/docs/start/) and [kubectl](https://kubernetes.io/docs/tasks/tools/).
-
-```bash
-# 1. Start the cluster
-minikube start
-
-# 2. Point Docker CLI at Minikube's internal daemon
-#    (images built after this live inside Minikube, not on your host)
-minikube docker-env | Invoke-Expression   # Windows PowerShell
-eval $(minikube docker-env)               # Mac / Linux
-
-# 3. Build both images inside that context
-docker build -t taskboard-server:latest ./server
-docker build -t taskboard-client:latest ./client
-
-# 4. Fill in k8s/secret.yaml with your DATABASE_URL and JWT secret, then apply
-kubectl apply -f k8s/
-
-# 5. Open the app
-minikube service client
-```
-
-> `imagePullPolicy: Never` is intentional — it forces Kubernetes to use the locally built images rather than pulling from Docker Hub.
-
-**Kubernetes architecture:**
-
-```
-Browser
-  │
-  ▼  :30080 (NodePort)
-client pod  (nginx)
-  │
-  │  /api/*  →  proxy_pass
-  ▼
-server pod  (Node.js)  ←── ClusterIP service "server:3000"
-  │
-  ▼
-PostgreSQL  (local or hosted — Neon / Supabase / Railway)
-```
-
-The nginx container serves the React SPA and proxies all `/api` requests to the backend via Kubernetes internal DNS (`server:3000`). The browser only ever talks to one origin.
-
-**Useful kubectl commands:**
-
-```bash
-kubectl get pods                    # both pods should show Running
-kubectl logs deployment/server      # backend logs
-kubectl logs deployment/client      # nginx logs
-kubectl describe pod -l app=server  # events (useful for CrashLoopBackOff)
-```
-
-## Project Structure
-
-```
-taskboard-app/
-├── server/                         # Node.js + Express backend
-│   ├── Dockerfile                  # Single-stage Node.js Alpine image
-│   ├── app.js                      # Express app setup (middleware, routes)
-│   ├── controllers/                # Business logic
-│   ├── routes/                     # Express router wiring
-│   ├── db/                         # pg connection pool + SQL migration files
-│   ├── utils/                      # auth helpers (hash, verify, createJWT)
-│   ├── middleware/                 # JWT auth, error handler
-│   ├── errors/                     # Custom error hierarchy
-│   ├── tests/                      # Integration test suite
-│   ├── jest.config.js
-│   └── package.json
-│
-├── client/                         # React + Vite frontend
-│   ├── Dockerfile                  # Multi-stage: Vite build → Nginx serve
-│   ├── nginx.conf                  # SPA fallback + /api proxy to server:3000
-│   ├── src/
-│   │   ├── pages/                  # Login, Register, Dashboard
-│   │   ├── components/             # TodoItem, TodoForm, ProtectedRoute
-│   │   ├── context/                # AuthContext (JWT + localStorage)
-│   │   ├── api/                    # Axios instance with auth interceptor
-│   │   └── App.jsx
-│   ├── vite.config.js              # Proxies /api → http://localhost:3000 (dev only)
-│   └── package.json
-│
-├── k8s/                            # Kubernetes manifests (Minikube)
-│   ├── server-deployment.yaml      # Backend pod
-│   ├── server-service.yaml         # ClusterIP — internal DNS "server:3000"
-│   ├── client-deployment.yaml      # Frontend pod
-│   ├── client-service.yaml         # NodePort 30080 — external browser access
-│   ├── configmap.yaml              # Non-sensitive env vars (PORT, NODE_ENV, …)
-│   └── secret.yaml                 # DATABASE_URL, JWT_SECRET (gitignored)
-│
-├── docker-compose.yml              # Compose orchestration for local prod mode
-├── .github/workflows/              # CI: test matrix + frontend build
-├── .env.example                    # Required environment variables
-└── package.json                    # Root scripts (dev, test, build, install)
-```
-
-## Getting Started
+## Local Development
 
 ### Prerequisites
 
-- Node.js v18+
-- PostgreSQL (local install or a free hosted instance — [Neon](https://neon.tech), [Supabase](https://supabase.com), [Railway](https://railway.app))
-- Tests use `pg-mem` (in-memory PostgreSQL) — no database connection required to run the test suite
+- Node.js 18+
+- npm
+- PostgreSQL, or Docker + Docker Compose
 
-### Installation
+### Install
 
 ```bash
 git clone https://github.com/ronketer/taskboard-app.git
 cd taskboard-app
 
-# Install all dependencies (server + client)
 npm run install:all
-
-# Configure environment
 cp .env.example .env
 ```
 
-Edit `.env` with your values:
+Configure at least:
 
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string — e.g. `postgresql://user:pass@localhost:5432/todo_app` |
-| `JWT_SECRET` | Random secret for signing tokens (`openssl rand -hex 32`) |
-| `JWT_EXPIRATION` | Token lifetime (e.g. `30d`) |
-| `PORT` | Backend port (default: `3000`) |
-
-After setting `DATABASE_URL`, apply the schema migrations once:
-
-```bash
-psql $DATABASE_URL -f server/db/migrations/001_create_users.sql
-psql $DATABASE_URL -f server/db/migrations/002_create_todos.sql
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/taskboard
+JWT_SECRET=replace-with-a-random-secret
+JWT_EXPIRATION=30d
+PORT=3000
+NODE_ENV=development
 ```
 
-### Running Locally
+Apply migrations:
 
-Start the backend (http://localhost:3000):
+```bash
+npm run migrate
+```
+
+Run the backend:
+
 ```bash
 npm run dev:server
 ```
 
-Start the frontend (http://localhost:5173):
+Run the frontend in another terminal:
+
 ```bash
 npm run dev:client
 ```
 
-The frontend proxies all `/api` requests to the backend via Vite's proxy config — no CORS configuration needed in development.
+Development URLs:
 
-Other root-level scripts:
-```bash
-npm test              # run backend test suite
-npm run build:client  # production build of the frontend
+```text
+Frontend: http://localhost:5173
+API:      http://localhost:3000
 ```
+
+## Docker Compose
+
+For a local production-style stack:
+
+```bash
+cp .env.example .env
+# Set JWT_SECRET and JWT_EXPIRATION in .env
+
+docker compose up --build
+```
+
+Compose starts:
+
+```text
+Browser
+  │
+  ▼ :80
+Nginx / React
+  │ /api/*
+  ▼
+Node / Express :3000
+  │
+  ▼
+PostgreSQL 17 :5432
+```
+
+The server container runs `npm run migrate` before `node app.js`.
+
+The frontend Dockerfile is multi-stage (`Vite build → Nginx`). The server uses a single-stage Node Alpine production image.
+
+## Kubernetes / Minikube
+
+The repository also contains Kubernetes manifests for local Minikube deployment.
+
+```bash
+minikube start
+
+# Build images inside Minikube's Docker daemon:
+minikube docker-env | Invoke-Expression   # PowerShell
+# eval $(minikube docker-env)             # bash/zsh
+
+docker build -t taskboard-server:latest ./server
+docker build -t taskboard-client:latest ./client
+
+# Configure the gitignored k8s/secret.yaml, then:
+kubectl apply -f k8s/
+
+minikube service client
+```
+
+The client container serves the SPA with Nginx and proxies `/api/*` to the internal server service.
+
+## Project Structure
+
+```text
+taskboard-app/
+├── .github/workflows/
+│   └── node.js.yml
+├── client/
+│   ├── src/
+│   │   ├── api/
+│   │   ├── components/
+│   │   ├── context/
+│   │   └── pages/
+│   ├── Dockerfile
+│   └── nginx.conf
+├── server/
+│   ├── controllers/
+│   ├── services/
+│   ├── repositories/
+│   ├── routes/
+│   ├── middleware/
+│   ├── errors/
+│   ├── db/
+│   │   ├── migrate.js
+│   │   ├── transaction.js
+│   │   └── migrations/
+│   ├── tests/
+│   ├── app.js
+│   └── Dockerfile
+├── k8s/
+├── docker-compose.yml
+├── .env.example
+└── package.json
+```
+
+## Design Tradeoffs
+
+### Modular monolith over microservices
+
+Boards, memberships, auth, and tasks share one transactionally consistent PostgreSQL database and have modest scale requirements. A modular monolith keeps deployment and debugging simple while still enforcing clear code boundaries.
+
+### Plain SQL over an ORM
+
+The project intentionally uses `pg` and explicit SQL. This keeps database constraints, indexes, joins, and transaction behavior visible and makes the persistence layer easy to reason about during code review.
+
+### Database invariants over check-then-insert logic
+
+For example, the application can detect an existing membership for a friendly error, but `(board_id, user_id)` remains a database primary key so concurrent requests cannot create duplicates.
+
+### 404 for inaccessible resources
+
+Authenticated non-members receive `404` rather than `403` for boards they cannot access. This avoids confirming whether a guessed board ID exists. A known member without sufficient role receives `403` for OWNER-only operations.
+
+### `pg-mem` plus real PostgreSQL
+
+`pg-mem` keeps most tests fast, but it does not perfectly emulate PostgreSQL features such as partial indexes. The project therefore runs a dedicated PostgreSQL integration suite instead of treating the emulator as the final source of truth.
+
+## Evolution From the Original CRUD App
+
+The architecture was evolved incrementally rather than rewritten in one step:
+
+1. added cross-user authorization regression tests;
+2. hardened email normalization and validation;
+3. introduced a versioned migration runner;
+4. moved email identity and pagination invariants into PostgreSQL indexes;
+5. extracted controllers → services → repositories;
+6. introduced Boards and Memberships with a data-preserving backfill;
+7. added transactional board creation and role-based membership APIs;
+8. added board-scoped task operations while preserving the legacy Personal-board API;
+9. moved the React dashboard to board-aware endpoints;
+10. added a dedicated real-PostgreSQL CI path.
+
+That sequence keeps each architectural change independently testable and preserves working behavior throughout the refactor.
