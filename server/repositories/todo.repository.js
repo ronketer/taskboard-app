@@ -2,8 +2,13 @@ const db = require('../db/pool');
 
 const create = async ({ userId, title, description }) => {
   const { rows } = await db.pool.query(
-    `INSERT INTO todos (title, description, created_by)
-     VALUES ($1, $2, $3)
+    `INSERT INTO todos (title, description, created_by, board_id)
+     VALUES (
+       $1,
+       $2,
+       $3,
+       (SELECT id FROM boards WHERE created_by = $3 AND is_personal = TRUE)
+     )
      RETURNING id, title, description, completed`,
     [title, description, userId]
   );

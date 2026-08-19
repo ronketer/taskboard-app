@@ -1,6 +1,8 @@
 const userRepository = require('../repositories/user.repository');
 const { hashPassword, verifyPassword, createJWT } = require('../utils/auth.utils');
 const { UnauthenticatedError, BadRequestError } = require('../errors');
+const boardService = require('./board.service');
+const { withTransaction } = require('../db/transaction');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -36,19 +38,32 @@ const register = async ({ name, email, password }) => {
 
   const passwordHash = await hashPassword(password);
 
-  let user;
-  try {
-    user = await userRepository.create({
-      name: name.trim(),
-      email: normalizedEmail,
-      passwordHash,
-    });
-  } catch (err) {
-    if (err.code === '23505') {
-      throw new BadRequestError('Email already in use.');
+  const user = await withTransaction(async (client) => {
+    let createdUser;
+
+    try {
+      createdUser = await userRepository.create(
+        {
+          name: name.trim(),
+          email: normalizedEmail,
+          passwordHash,
+        },
+        client
+      );
+    } catch (err) {
+      if (err.code === '23505') {
+        throw new BadRequestError('Email already in use.');
+      }
+      throw err;
     }
-    throw err;
-  }
+
+    await boardService.createPersonalBoardForUser({
+      userId: createdUser.id,
+      client,
+    });
+
+    return createdUser;
+  });
 
   return createJWT(user.id);
 };

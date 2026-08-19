@@ -22,8 +22,8 @@ const findCredentialsByNormalizedEmail = async (normalizedEmail) => {
   return rows[0] || null;
 };
 
-const create = async ({ name, email, passwordHash }) => {
-  const { rows } = await db.pool.query(
+const create = async ({ name, email, passwordHash }, queryable = db.pool) => {
+  const { rows } = await queryable.query(
     `INSERT INTO users (name, email, password)
      VALUES ($1, $2, $3)
      RETURNING id`,

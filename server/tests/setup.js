@@ -25,7 +25,9 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  // Delete in FK-safe order: referencing table first
+  // Delete in FK-safe order: referencing tables first.
   await memPool.query('DELETE FROM todos');
+  await memPool.query('DELETE FROM board_members');
+  await memPool.query('DELETE FROM boards');
   await memPool.query('DELETE FROM users');
 });

@@ -29,11 +29,12 @@ describe('PostgreSQL Migration Runner', () => {
     it('should discover and sort real migration files in deterministic ascending order', () => {
       const migrations = discoverMigrations();
 
-      expect(migrations.length).toBeGreaterThanOrEqual(4);
+      expect(migrations.length).toBeGreaterThanOrEqual(5);
       expect(migrations[0].name).toBe('001_create_users.sql');
       expect(migrations[1].name).toBe('002_create_todos.sql');
       expect(migrations[2].name).toBe('003_enforce_normalized_email_uniqueness.sql');
       expect(migrations[3].name).toBe('004_add_todos_ownership_pagination_index.sql');
+      expect(migrations[4].name).toBe('005_add_boards_and_memberships.sql');
 
       // Verify files actually exist on disk
       for (const m of migrations) {
@@ -68,13 +69,14 @@ describe('PostgreSQL Migration Runner', () => {
         '002_create_todos.sql',
         '003_enforce_normalized_email_uniqueness.sql',
         '004_add_todos_ownership_pagination_index.sql',
+        '005_add_boards_and_memberships.sql',
       ]);
 
       // Verify schema_migrations table exists and has rows
       const history = await pool.query(
         'SELECT version, applied_at FROM schema_migrations ORDER BY version ASC'
       );
-      expect(history.rows).toHaveLength(4);
+      expect(history.rows).toHaveLength(5);
       expect(history.rows[0].version).toBe('001_create_users.sql');
       expect(history.rows[0].applied_at).toBeDefined();
       expect(history.rows[1].version).toBe('002_create_todos.sql');
@@ -83,6 +85,8 @@ describe('PostgreSQL Migration Runner', () => {
       expect(history.rows[2].applied_at).toBeDefined();
       expect(history.rows[3].version).toBe('004_add_todos_ownership_pagination_index.sql');
       expect(history.rows[3].applied_at).toBeDefined();
+      expect(history.rows[4].version).toBe('005_add_boards_and_memberships.sql');
+      expect(history.rows[4].applied_at).toBeDefined();
 
       // Verify application tables were created
       const userTableCheck = await pool.query('SELECT * FROM users');
@@ -90,6 +94,12 @@ describe('PostgreSQL Migration Runner', () => {
 
       const todoTableCheck = await pool.query('SELECT * FROM todos');
       expect(todoTableCheck.rows).toEqual([]);
+
+      const boardTableCheck = await pool.query('SELECT * FROM boards');
+      expect(boardTableCheck.rows).toEqual([]);
+
+      const membershipTableCheck = await pool.query('SELECT * FROM board_members');
+      expect(membershipTableCheck.rows).toEqual([]);
     });
   });
 
@@ -97,7 +107,7 @@ describe('PostgreSQL Migration Runner', () => {
     it('should skip already-applied migrations on second run without duplicating schema', async () => {
       // First run: applies migrations
       const firstRun = await runMigrations(pool, { silent: true });
-      expect(firstRun.applied).toHaveLength(4);
+      expect(firstRun.applied).toHaveLength(5);
 
       // Seed a user to prove data is not wiped or recreated
       await pool.query(
@@ -112,6 +122,7 @@ describe('PostgreSQL Migration Runner', () => {
         '002_create_todos.sql',
         '003_enforce_normalized_email_uniqueness.sql',
         '004_add_todos_ownership_pagination_index.sql',
+        '005_add_boards_and_memberships.sql',
       ]);
 
       // Verify pre-existing data remains intact
@@ -157,6 +168,7 @@ describe('PostgreSQL Migration Runner', () => {
         '002_create_todos.sql',
         '003_enforce_normalized_email_uniqueness.sql',
         '004_add_todos_ownership_pagination_index.sql',
+        '005_add_boards_and_memberships.sql',
       ]);
 
       // Verify schema_migrations recorded all migrations
@@ -165,13 +177,181 @@ describe('PostgreSQL Migration Runner', () => {
       expect(versions.has('002_create_todos.sql')).toBe(true);
       expect(versions.has('003_enforce_normalized_email_uniqueness.sql')).toBe(true);
       expect(versions.has('004_add_todos_ownership_pagination_index.sql')).toBe(true);
+      expect(versions.has('005_add_boards_and_memberships.sql')).toBe(true);
 
       // Verify legacy user's email was safely normalized to canonical lowercase & trimmed
       const legacyUser = await pool.query('SELECT * FROM users WHERE id = 1');
       expect(legacyUser.rows[0].email).toBe('ron.keter@example.com');
 
+      const legacyBoard = await pool.query(
+        `SELECT b.id, b.name, b.created_by, b.is_personal, bm.role
+         FROM boards b
+         JOIN board_members bm ON bm.board_id = b.id
+         WHERE b.created_by = 1 AND bm.user_id = 1`
+      );
+      expect(legacyBoard.rows).toHaveLength(1);
+      expect(legacyBoard.rows[0].name).toBe('Personal');
+      expect(legacyBoard.rows[0].is_personal).toBe(true);
+      expect(legacyBoard.rows[0].role).toBe('OWNER');
+
       const legacyTodo = await pool.query('SELECT * FROM todos WHERE id = 1');
       expect(legacyTodo.rows[0].title).toBe('Legacy Todo');
+      expect(legacyTodo.rows[0].board_id).toBe(legacyBoard.rows[0].id);
+    });
+  });
+
+  describe('Migration 005: Boards and Memberships', () => {
+    it('should backfill one Personal board and OWNER membership per existing user', async () => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-pre-boards-'));
+
+      try {
+        for (const filename of [
+          '001_create_users.sql',
+          '002_create_todos.sql',
+          '003_enforce_normalized_email_uniqueness.sql',
+          '004_add_todos_ownership_pagination_index.sql',
+        ]) {
+          fs.copyFileSync(
+            path.join(__dirname, '../db/migrations', filename),
+            path.join(tempDir, filename)
+          );
+        }
+
+        await runMigrations(pool, { migrationsDir: tempDir, silent: true });
+
+        await pool.query(
+          `INSERT INTO users (id, name, email, password)
+           VALUES
+             (10, 'Alice', 'alice@example.com', 'password1'),
+             (20, 'Bob', 'bob@example.com', 'password2')`
+        );
+        await pool.query(
+          `INSERT INTO todos (id, title, created_by)
+           VALUES
+             (101, 'Alice Todo', 10),
+             (102, 'Bob Todo', 20)`
+        );
+
+        await runMigrations(pool, { silent: true });
+
+        const boards = await pool.query(
+          `SELECT created_by, name, is_personal
+           FROM boards
+           ORDER BY created_by`
+        );
+        expect(boards.rows).toEqual([
+          { created_by: 10, name: 'Personal', is_personal: true },
+          { created_by: 20, name: 'Personal', is_personal: true },
+        ]);
+
+        const memberships = await pool.query(
+          `SELECT b.created_by, bm.user_id, bm.role
+           FROM board_members bm
+           JOIN boards b ON b.id = bm.board_id
+           ORDER BY b.created_by`
+        );
+        expect(memberships.rows).toEqual([
+          { created_by: 10, user_id: 10, role: 'OWNER' },
+          { created_by: 20, user_id: 20, role: 'OWNER' },
+        ]);
+
+        const todos = await pool.query(
+          `SELECT t.id, t.created_by, b.created_by AS board_creator
+           FROM todos t
+           JOIN boards b ON b.id = t.board_id
+           ORDER BY t.id`
+        );
+        expect(todos.rows).toEqual([
+          { id: 101, created_by: 10, board_creator: 10 },
+          { id: 102, created_by: 20, board_creator: 20 },
+        ]);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should enforce Personal-board, owner, membership, and todo board invariants', async () => {
+      await runMigrations(pool, { silent: true });
+
+      const userA = await pool.query(
+        `INSERT INTO users (name, email, password)
+         VALUES ('User A', 'user-a@example.com', 'password1')
+         RETURNING id`
+      );
+      const userB = await pool.query(
+        `INSERT INTO users (name, email, password)
+         VALUES ('User B', 'user-b@example.com', 'password2')
+         RETURNING id`
+      );
+
+      const userAId = userA.rows[0].id;
+      const userBId = userB.rows[0].id;
+
+      const board = await pool.query(
+        `INSERT INTO boards (name, created_by, is_personal)
+         VALUES ('Personal', $1, TRUE)
+         RETURNING id`,
+        [userAId]
+      );
+      const boardId = board.rows[0].id;
+
+      await pool.query(
+        `INSERT INTO board_members (board_id, user_id, role)
+         VALUES ($1, $2, 'OWNER')`,
+        [boardId, userAId]
+      );
+
+      await expect(
+        pool.query(
+          `INSERT INTO boards (name, created_by, is_personal)
+           VALUES ('Another Personal', $1, TRUE)`,
+          [userAId]
+        )
+      ).rejects.toThrow(/unique|duplicate/i);
+
+      await expect(
+        pool.query(
+          `INSERT INTO board_members (board_id, user_id, role)
+           VALUES ($1, $2, 'OWNER')`,
+          [boardId, userBId]
+        )
+      ).rejects.toThrow(/unique|duplicate/i);
+
+      await pool.query(
+        `INSERT INTO board_members (board_id, user_id, role)
+         VALUES ($1, $2, 'MEMBER')`,
+        [boardId, userBId]
+      );
+
+      await expect(
+        pool.query(
+          `INSERT INTO board_members (board_id, user_id, role)
+           VALUES ($1, $2, 'MEMBER')`,
+          [boardId, userBId]
+        )
+      ).rejects.toThrow(/unique|duplicate/i);
+
+      const userC = await pool.query(
+        `INSERT INTO users (name, email, password)
+         VALUES ('User C', 'user-c@example.com', 'password3')
+         RETURNING id`
+      );
+
+      await expect(
+        pool.query(
+          `INSERT INTO board_members (board_id, user_id, role)
+           VALUES ($1, $2, 'ADMIN')`,
+          [boardId, userC.rows[0].id]
+        )
+      ).rejects.toThrow();
+
+      await expect(
+        pool.query(
+          `INSERT INTO todos (title, created_by)
+           VALUES ('Missing Board', $1)`,
+          [userAId]
+        )
+      ).rejects.toThrow();
     });
   });
 
