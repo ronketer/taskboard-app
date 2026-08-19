@@ -119,4 +119,34 @@ describe('Todo Core Logic - Happy Paths and Branches', () => {
       .set('Authorization', `Bearer ${authToken}`);
     expect(response.status).toBe(404);
   });
+
+  it('should return deterministic pagination ordering with id DESC when created_at is identical', async () => {
+    const db = require('../db/pool');
+    await db.pool.query('DELETE FROM todos');
+
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(authToken, process.env.JWT_SECRET);
+    const userId = decoded.userId;
+
+    const fixedTime = '2026-01-01T12:00:00.000Z';
+
+    await db.pool.query(
+      `INSERT INTO todos (id, title, description, created_by, created_at)
+       VALUES (101, 'Task Low ID', 'First inserted', $1, $2),
+              (102, 'Task Mid ID', 'Second inserted', $1, $2),
+              (103, 'Task High ID', 'Third inserted', $1, $2)`,
+      [userId, fixedTime]
+    );
+
+    const response = await request(app)
+      .get('/api/v1/todos')
+      .set('Authorization', `Bearer ${authToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toHaveLength(3);
+    // Higher id appears first due to ORDER BY created_at DESC, id DESC
+    expect(response.body.data[0].id).toBe(103);
+    expect(response.body.data[1].id).toBe(102);
+    expect(response.body.data[2].id).toBe(101);
+  });
 });

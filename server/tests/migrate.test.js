@@ -29,10 +29,11 @@ describe('PostgreSQL Migration Runner', () => {
     it('should discover and sort real migration files in deterministic ascending order', () => {
       const migrations = discoverMigrations();
 
-      expect(migrations.length).toBeGreaterThanOrEqual(3);
+      expect(migrations.length).toBeGreaterThanOrEqual(4);
       expect(migrations[0].name).toBe('001_create_users.sql');
       expect(migrations[1].name).toBe('002_create_todos.sql');
       expect(migrations[2].name).toBe('003_enforce_normalized_email_uniqueness.sql');
+      expect(migrations[3].name).toBe('004_add_todos_ownership_pagination_index.sql');
 
       // Verify files actually exist on disk
       for (const m of migrations) {
@@ -66,19 +67,22 @@ describe('PostgreSQL Migration Runner', () => {
         '001_create_users.sql',
         '002_create_todos.sql',
         '003_enforce_normalized_email_uniqueness.sql',
+        '004_add_todos_ownership_pagination_index.sql',
       ]);
 
       // Verify schema_migrations table exists and has rows
       const history = await pool.query(
         'SELECT version, applied_at FROM schema_migrations ORDER BY version ASC'
       );
-      expect(history.rows).toHaveLength(3);
+      expect(history.rows).toHaveLength(4);
       expect(history.rows[0].version).toBe('001_create_users.sql');
       expect(history.rows[0].applied_at).toBeDefined();
       expect(history.rows[1].version).toBe('002_create_todos.sql');
       expect(history.rows[1].applied_at).toBeDefined();
       expect(history.rows[2].version).toBe('003_enforce_normalized_email_uniqueness.sql');
       expect(history.rows[2].applied_at).toBeDefined();
+      expect(history.rows[3].version).toBe('004_add_todos_ownership_pagination_index.sql');
+      expect(history.rows[3].applied_at).toBeDefined();
 
       // Verify application tables were created
       const userTableCheck = await pool.query('SELECT * FROM users');
@@ -93,7 +97,7 @@ describe('PostgreSQL Migration Runner', () => {
     it('should skip already-applied migrations on second run without duplicating schema', async () => {
       // First run: applies migrations
       const firstRun = await runMigrations(pool, { silent: true });
-      expect(firstRun.applied).toHaveLength(3);
+      expect(firstRun.applied).toHaveLength(4);
 
       // Seed a user to prove data is not wiped or recreated
       await pool.query(
@@ -107,6 +111,7 @@ describe('PostgreSQL Migration Runner', () => {
         '001_create_users.sql',
         '002_create_todos.sql',
         '003_enforce_normalized_email_uniqueness.sql',
+        '004_add_todos_ownership_pagination_index.sql',
       ]);
 
       // Verify pre-existing data remains intact
@@ -151,6 +156,7 @@ describe('PostgreSQL Migration Runner', () => {
         '001_create_users.sql',
         '002_create_todos.sql',
         '003_enforce_normalized_email_uniqueness.sql',
+        '004_add_todos_ownership_pagination_index.sql',
       ]);
 
       // Verify schema_migrations recorded all migrations
@@ -158,6 +164,7 @@ describe('PostgreSQL Migration Runner', () => {
       expect(versions.has('001_create_users.sql')).toBe(true);
       expect(versions.has('002_create_todos.sql')).toBe(true);
       expect(versions.has('003_enforce_normalized_email_uniqueness.sql')).toBe(true);
+      expect(versions.has('004_add_todos_ownership_pagination_index.sql')).toBe(true);
 
       // Verify legacy user's email was safely normalized to canonical lowercase & trimmed
       const legacyUser = await pool.query('SELECT * FROM users WHERE id = 1');
