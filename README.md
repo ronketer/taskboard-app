@@ -11,8 +11,6 @@ A multi-user task board built as a **modular monolith** with Node.js/Express, Po
 
 The project started as a user-scoped CRUD application and was evolved into a board-based system with explicit application and persistence boundaries, transactional board creation, role-based membership rules, versioned schema migrations, data backfills, and a dedicated real-PostgreSQL CI path.
 
-![Demo](todo_app_demo.gif)
-
 ## What This Project Demonstrates
 
 - **Layered backend architecture** — routes → controllers → services → repositories → PostgreSQL
