@@ -144,6 +144,18 @@ const createTestDb = () => {
     returns: mem.public.getType('varchar'),
     implementation: (s) => (s ? s.trim() : s),
   });
+  mem.public.registerFunction({
+    name: 'char_length',
+    args: [mem.public.getType('text')],
+    returns: mem.public.getType('integer'),
+    implementation: (s) => (s == null ? null : s.length),
+  });
+  mem.public.registerFunction({
+    name: 'char_length',
+    args: [mem.public.getType('varchar')],
+    returns: mem.public.getType('integer'),
+    implementation: (s) => (s == null ? null : s.length),
+  });
 
   return mem;
 };

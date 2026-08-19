@@ -129,13 +129,22 @@ describe('Todo Core Logic - Happy Paths and Branches', () => {
     const userId = decoded.userId;
 
     const fixedTime = '2026-01-01T12:00:00.000Z';
+    const {
+      rows: [personalBoard],
+    } = await db.pool.query(
+      `SELECT id
+       FROM boards
+       WHERE created_by = $1
+         AND is_personal = TRUE`,
+      [userId]
+    );
 
     await db.pool.query(
-      `INSERT INTO todos (id, title, description, created_by, created_at)
-       VALUES (101, 'Task Low ID', 'First inserted', $1, $2),
-              (102, 'Task Mid ID', 'Second inserted', $1, $2),
-              (103, 'Task High ID', 'Third inserted', $1, $2)`,
-      [userId, fixedTime]
+      `INSERT INTO todos (id, title, description, created_by, board_id, created_at)
+       VALUES (101, 'Task Low ID', 'First inserted', $1, $2, $3),
+              (102, 'Task Mid ID', 'Second inserted', $1, $2, $3),
+              (103, 'Task High ID', 'Third inserted', $1, $2, $3)`,
+      [userId, personalBoard.id, fixedTime]
     );
 
     const response = await request(app)
