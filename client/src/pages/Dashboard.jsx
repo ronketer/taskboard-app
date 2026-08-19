@@ -79,7 +79,12 @@ export default function Dashboard() {
         const defaultBoard =
           fetchedBoards.find((board) => board.isPersonal) ?? fetchedBoards[0];
 
-        setSelectedBoardId(defaultBoard ? String(defaultBoard.id) : "");
+        const defaultBoardId = defaultBoard ? String(defaultBoard.id) : "";
+        setSelectedBoardId(defaultBoardId);
+
+        if (defaultBoardId) {
+          await fetchTodos(defaultBoardId, 1);
+        }
       } catch (err) {
         setError(err.response?.data?.msg || "Failed to load boards");
       } finally {
@@ -88,13 +93,7 @@ export default function Dashboard() {
     }
 
     fetchBoards();
-  }, []);
-
-  useEffect(() => {
-    if (!selectedBoardId) return;
-
-    fetchTodos(selectedBoardId, 1);
-  }, [selectedBoardId, fetchTodos]);
+  }, [fetchTodos]);
 
   function handleBoardSelection(boardId) {
     setTodos([]);
@@ -102,6 +101,10 @@ export default function Dashboard() {
     setPageCount(1);
     setError("");
     setSelectedBoardId(boardId);
+
+    if (boardId) {
+      fetchTodos(boardId, 1);
+    }
   }
 
   async function handleCreateBoard(e) {
